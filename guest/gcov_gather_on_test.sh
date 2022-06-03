@@ -2,7 +2,7 @@
 # From https://www.kernel.org/doc/html/v5.6-rc7/dev-tools/gcov.html
 
 DEST=$1
-GCDA=/sys/kernel/debug/gcov
+GCDA="$(find /sys/kernel/debug/gcov -type d -path '*/security/landlock')"
 
 if [ -z "$DEST" ] ; then
 	echo "Usage: $0 <output.tar.gz>" >&2
@@ -11,9 +11,9 @@ fi
 
 TEMPDIR=$(mktemp -d)
 echo Collecting data..
-find $GCDA -type d -exec mkdir -p $TEMPDIR/\{\} \;
-find $GCDA -name '*.gcda' -exec sh -c 'cat < $0 > '$TEMPDIR'/$0' {} \;
-find $GCDA -name '*.gcno' -exec sh -c 'cp -d $0 '$TEMPDIR'/$0' {} \;
+find "$GCDA" -type d -exec mkdir -p $TEMPDIR/\{\} \;
+find "$GCDA" -name '*.gcda' -exec sh -c 'cat < $0 > '$TEMPDIR'/$0' {} \;
+find "$GCDA" -name '*.gcno' -exec sh -c 'cp -d $0 '$TEMPDIR'/$0' {} \;
 tar czf $DEST -C $TEMPDIR sys
 rm -rf $TEMPDIR
 
