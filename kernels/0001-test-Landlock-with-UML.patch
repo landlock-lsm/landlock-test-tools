@@ -1,0 +1,28 @@
+From: Test Only <user@localhost>
+Subject: [PATCH] TEST-WITHOUT-HOSTFS: Enable to build Landlock with User-Mode
+ Linux
+
+This is for tests that don't rely on hostfs!
+
+UML is fully supported since Linux 6.5:
+https://git.kernel.org/stable/c/26642864f8b212964f80fbd69685eb850ced5f45
+---
+ security/landlock/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/security/landlock/Kconfig b/security/landlock/Kconfig
+index 8e33c4e8ffb8..c1e862a38410 100644
+--- a/security/landlock/Kconfig
++++ b/security/landlock/Kconfig
+@@ -2,7 +2,7 @@
+ 
+ config SECURITY_LANDLOCK
+ 	bool "Landlock support"
+-	depends on SECURITY && !ARCH_EPHEMERAL_INODES
++	depends on SECURITY
+ 	select SECURITY_PATH
+ 	help
+ 	  Landlock is a sandboxing mechanism that enables processes to restrict
+-- 
+2.41.0
+
