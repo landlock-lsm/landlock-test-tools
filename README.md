@@ -5,3 +5,5 @@ various Landlock kernels thanks to User-Mode Linux (UML).
 
 To make tests quick, interesting kernels are stored in kernels/artifacts and
 built with the kernels/make-uml.sh script.
+
+uml-run.sh can be used to launch an UML kernel with an init test script.
