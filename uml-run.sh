@@ -5,7 +5,9 @@
 #
 # Launch a minimal User-Mode Linux system to run all Landlock tests.
 #
-# Example: ./uml-run.sh linux-6.1 bash HISTFILE=/dev/null
+# Examples:
+# ./uml-run.sh linux-6.1 bash HISTFILE=/dev/null
+# ./uml-run.sh .../linux .../tools/testing/selftests/kselftest_install/run_kselftest.sh
 
 set -e -u -o pipefail
 
@@ -16,9 +18,32 @@ fi
 
 BASE_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 
-KERNEL="${BASE_DIR}/kernels/artifacts/$1"
-EXEC="$(command -v -- "$2")"
+KERNEL="$1"
+if ! EXEC="$(command -v -- "$2")"; then
+	echo "ERROR: Failed to find command $2" >&2
+	exit 1
+fi
+
+if [[ ! -x "${EXEC}" ]]; then
+	echo "ERROR: Failed to find executable file ${EXEC}" >&2
+	exit 1
+fi
+
 shift 2
+
+# Looks first for a known kernel.
+KERNEL_ARTIFACT="${BASE_DIR}/kernels/artifacts/${KERNEL}"
+if [[ "${KERNEL}" == "$(basename -- "${KERNEL}")" ]] && [[ -f "${KERNEL_ARTIFACT}" ]]; then
+	KERNEL="${KERNEL_ARTIFACT}"
+fi
+
+# Handles relative file without "./" prefix.
+KERNEL="$(readlink -f -- "${KERNEL}")"
+
+if [[ ! -f "${KERNEL}" ]]; then
+	echo "ERROR: Could not find this kernel: ${KERNEL}" >&2
+	exit 1
+fi
 
 OUT_RET="$(mktemp uml-ret.XXXXXXXXXX)"
 
@@ -27,6 +52,8 @@ cleanup() {
 }
 
 trap cleanup QUIT INT TERM EXIT
+
+echo "[*] Booting kernel ${KERNEL}"
 
 "${KERNEL}" \
 	"rootfstype=hostfs" \
