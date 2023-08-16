@@ -32,18 +32,7 @@ if [[ -z "${EXEC}" ]]; then
 	exit 1
 fi
 
-OUT_RET="$(mktemp uml-ret.XXXXXXXXXX)"
-
-cleanup() {
-	rm -- "${OUT_RET}"
-}
-
-trap cleanup QUIT INT TERM EXIT
-
-"${BASE_DIR}/uml-run.sh" \
+exec "${BASE_DIR}/uml-run.sh" \
 	"${KERNEL}" \
 	"${EXEC}" \
-	"UML_RET=${OUT_RET}" \
 	"LANDLOCK_CRATE_TEST_ABI=${ABI}"
-
-exit "$(< "${OUT_RET}")"

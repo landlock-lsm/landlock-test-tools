@@ -20,7 +20,15 @@ KERNEL="${BASE_DIR}/kernels/artifacts/$1"
 EXEC="$(command -v -- "$2")"
 shift 2
 
-exec "${KERNEL}" \
+OUT_RET="$(mktemp uml-ret.XXXXXXXXXX)"
+
+cleanup() {
+	rm -- "${OUT_RET}"
+}
+
+trap cleanup QUIT INT TERM EXIT
+
+"${KERNEL}" \
 	"rootfstype=hostfs" \
 	"rootflags=/" \
 	"rw" \
@@ -29,5 +37,8 @@ exec "${KERNEL}" \
 	"UML_UID=$(id -u)" \
 	"UML_CWD=$(pwd)" \
 	"UML_EXEC=${EXEC}" \
+	"UML_RET=${OUT_RET}" \
 	"PATH=${PATH:-}" \
 	"$@"
+
+exit "$(< "${OUT_RET}")"
