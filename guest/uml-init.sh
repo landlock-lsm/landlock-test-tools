@@ -19,22 +19,15 @@
 
 set -e -u -o pipefail
 
-if [[ $$ -ne 1 ]]; then
-	echo "ERROR: This must be run as the initial process" >&2
+if [[ -z "${UML_UID:-}" ]]; then
+	echo "ERROR: This must be launched by uml-run.sh" >&2
 	exit 1
 fi
 
-echo "[*] Mounting filesystems"
-mount -t proc proc /proc
-mount -t tmpfs tmpfs /tmp
-mount -t tmpfs tmpfs /run
-mkdir /dev/pts
-mount -t devpts devpts /dev/pts
-mount -t sysfs sysfs /sys
-mount -t cgroup2 cgroup2 /sys/fs/cgroup
-
-echo "[*] Configuring network"
-ip address add 127.0.0.1/8 dev lo
+if [[ -z "${SYSTEMD_EXEC_PID:-}" ]]; then
+	echo "ERROR: This must be launched by systemd" >&2
+	exit 1
+fi
 
 if [[ -z "${PATH:-}" ]]; then
 	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
@@ -45,7 +38,7 @@ if [[ "${HOME:-/}" == / ]]; then
 fi
 
 if [[ -z "${TMPDIR:-}" ]]; then
-	export TMPDIR="/tmp"
+	export TMPDIR="/run"
 fi
 
 cd "${UML_CWD}"

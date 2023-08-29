@@ -60,12 +60,13 @@ echo "[*] Booting kernel ${KERNEL}"
 	"rootflags=/" \
 	"rw" \
 	"quiet" \
-	"init=${BASE_DIR}/guest/uml-init.sh" \
+	"systemd.unit=landlock-test.service" \
+	"SYSTEMD_UNIT_PATH=${BASE_DIR}/guest" \
+	"PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
 	"UML_UID=$(id -u)" \
 	"UML_CWD=$(pwd)" \
 	"UML_EXEC=${EXEC}" \
 	"UML_RET=${OUT_RET}" \
-	"PATH=${PATH:-}" \
 	"$@"
 
 exit "$(< "${OUT_RET}")"
