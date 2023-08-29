@@ -60,7 +60,7 @@ echo "[*] Booting kernel ${KERNEL}"
 	"rootflags=/" \
 	"rw" \
 	"quiet" \
-	"init=${BASE_DIR}/uml-init.sh" \
+	"init=${BASE_DIR}/guest/uml-init.sh" \
 	"UML_UID=$(id -u)" \
 	"UML_CWD=$(pwd)" \
 	"UML_EXEC=${EXEC}" \
