@@ -45,7 +45,7 @@ if [[ ! -f "${KERNEL}" ]]; then
 	exit 1
 fi
 
-OUT_RET="$(mktemp uml-ret.XXXXXXXXXX)"
+OUT_RET="$(mktemp --tmpdir= uml-ret.XXXXXXXXXX)"
 
 cleanup() {
 	rm -- "${OUT_RET}"
