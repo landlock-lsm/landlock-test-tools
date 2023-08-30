@@ -71,6 +71,7 @@ echo "[*] Booting kernel ${KERNEL}"
 	"systemd.unit=landlock-test.service" \
 	"SYSTEMD_UNIT_PATH=${BASE_DIR}/guest" \
 	"PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
+	"TERM=${TERM:-linux}" \
 	"UML_UID=$(id -u)" \
 	"UML_CWD=$(pwd)" \
 	"UML_RET=${OUT_RET}" \
