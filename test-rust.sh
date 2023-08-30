@@ -32,7 +32,10 @@ if [[ -z "${EXEC}" ]]; then
 	exit 1
 fi
 
-timeout --signal KILL 9 "${BASE_DIR}/uml-run.sh" \
+TIMEOUT=9
+
+timeout --signal KILL "${TIMEOUT}" </dev/null 2>&1 "${BASE_DIR}/uml-run.sh" \
 	"${KERNEL}" \
 	"${EXEC}" \
-	"LANDLOCK_CRATE_TEST_ABI=${ABI}"
+	"LANDLOCK_CRATE_TEST_ABI=${ABI}" \
+	| timeout "$((TIMEOUT + 1))" cat
