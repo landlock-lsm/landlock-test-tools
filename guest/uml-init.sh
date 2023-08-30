@@ -19,14 +19,21 @@
 
 set -e -u -o pipefail
 
+exit_poweroff() {
+	if [[ -n "${UML_RET:-}" ]]; then
+		echo "$1" > "${UML_RET}"
+	fi
+	exec poweroff -f
+}
+
 if [[ -z "${UML_UID:-}" ]]; then
 	echo "ERROR: This must be launched by uml-run.sh" >&2
-	exit 1
+	exit_poweroff 1
 fi
 
 if [[ -z "${SYSTEMD_EXEC_PID:-}" ]]; then
 	echo "ERROR: This must be launched by systemd" >&2
-	exit 1
+	exit_poweroff 1
 fi
 
 if [[ -z "${PATH:-}" ]]; then
@@ -53,8 +60,4 @@ RET=0
 
 echo "[*] Returned value: ${RET}"
 
-if [[ -n "${UML_RET:-}" ]]; then
-	echo ${RET} > "${UML_RET}"
-fi
-
-exec poweroff -f
+exit_poweroff "${RET}"
