@@ -12,7 +12,6 @@
 # Required boot variables:
 # - UML_UID
 # - UML_CWD
-# - UML_EXEC
 #
 # Optional boot variable:
 # - UML_RET
@@ -36,6 +35,14 @@ if [[ -z "${SYSTEMD_EXEC_PID:-}" ]]; then
 	exit_poweroff 1
 fi
 
+UML_EXEC="$(< /proc/cmdline)"
+UML_EXEC="${UML_EXEC#* --}"
+
+if [[ -z "${UML_EXEC}" ]]; then
+	echo "ERROR: Missing command" >&2
+	exit_poweroff 1
+fi
+
 if [[ -z "${PATH:-}" ]]; then
 	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 fi
@@ -51,7 +58,7 @@ fi
 cd "${UML_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
-CMD=(setpriv --inh-caps +all --ambient-caps +all --reuid "${UML_UID}" -- "${UML_EXEC}")
+CMD=(setpriv --inh-caps +all --ambient-caps +all --reuid "${UML_UID}" -- ${UML_EXEC})
 
 echo "[*] Launching ${CMD[@]}"
 

@@ -36,6 +36,7 @@ TIMEOUT=9
 
 timeout --signal KILL "${TIMEOUT}" </dev/null 2>&1 "${BASE_DIR}/uml-run.sh" \
 	"${KERNEL}" \
-	"${EXEC}" \
 	"LANDLOCK_CRATE_TEST_ABI=${ABI}" \
+	-- \
+	"${EXEC}" \
 	| timeout "$((TIMEOUT + 1))" cat

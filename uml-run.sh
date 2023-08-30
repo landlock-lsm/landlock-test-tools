@@ -6,30 +6,36 @@
 # Launch a minimal User-Mode Linux system to run all Landlock tests.
 #
 # Examples:
-# ./uml-run.sh linux-6.1 bash HISTFILE=/dev/null
-# ./uml-run.sh .../linux .../tools/testing/selftests/kselftest_install/run_kselftest.sh
+# ./uml-run.sh linux-6.1 HISTFILE=/dev/null -- bash -i
+# ./uml-run.sh .../linux -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
 
 set -e -u -o pipefail
 
 if [[ $# -lt 2 ]]; then
-	echo "usage: ${BASH_SOURCE[0]} <linux-uml-kernel> <exec-path> [VAR=value]..." >&2
+	echo "usage: ${BASH_SOURCE[0]} <linux-uml-kernel> [VAR=value]... -- <exec-path> [exec-arg]..." >&2
 	exit 1
 fi
 
 BASE_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 
 KERNEL="$1"
-if ! EXEC="$(command -v -- "$2")"; then
-	echo "ERROR: Failed to find command $2" >&2
+shift
+
+has_double_dash() {
+	local arg
+
+	for arg in "$@"; do
+		if [[ "${arg}" == "--" ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+if ! has_double_dash "$@"; then
+	echo "ERROR: Missing '--' argument" >&2
 	exit 1
 fi
-
-if [[ ! -x "${EXEC}" ]]; then
-	echo "ERROR: Failed to find executable file ${EXEC}" >&2
-	exit 1
-fi
-
-shift 2
 
 # Looks first for a known kernel.
 KERNEL_ARTIFACT="${BASE_DIR}/kernels/artifacts/${KERNEL}"
@@ -58,15 +64,16 @@ echo "[*] Booting kernel ${KERNEL}"
 "${KERNEL}" \
 	"rootfstype=hostfs" \
 	"rootflags=/" \
+	"root=98:0" \
 	"rw" \
+	"console=tty0" \
 	"quiet" \
 	"systemd.unit=landlock-test.service" \
 	"SYSTEMD_UNIT_PATH=${BASE_DIR}/guest" \
 	"PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
 	"UML_UID=$(id -u)" \
 	"UML_CWD=$(pwd)" \
-	"UML_EXEC=${EXEC}" \
 	"UML_RET=${OUT_RET}" \
-	"$@"
+	$*
 
 exit "$(< "${OUT_RET}")"

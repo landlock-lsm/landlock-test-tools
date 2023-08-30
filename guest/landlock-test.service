@@ -6,7 +6,7 @@ DefaultDependencies=no
 ExecStart=bash uml-init.sh
 Type=idle
 PassEnvironment=PATH \
-		UML_UID UML_CWD UML_EXEC UML_RET\
+		UML_UID UML_CWD UML_RET\
 		LANDLOCK_CRATE_TEST_ABI
 StandardInput=tty
 StandardOutput=inherit
