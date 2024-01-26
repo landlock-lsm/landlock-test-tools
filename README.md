@@ -8,6 +8,15 @@ built with the kernels/make-uml.sh script.
 
 uml-run.sh can be used to launch an UML kernel with an init test script.
 
+## check-linux
+
+Build the kernel, samples, tests and check everything for Landlock.
+
+```shell
+cd linux
+.../check-linux.sh all
+```
+
 ## rust-landlock
 
 test-rust.sh can be used to test the Landlock crate against a specific kernel
