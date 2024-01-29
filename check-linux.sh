@@ -36,20 +36,42 @@ make_cmd() {
 	make "-j${NPROC}" "ARCH=${ARCH}" "CC=${CC}" "O=${O}" "$@"
 }
 
-unpatch_source() {
+unpatch_item() {
 	# Should always succeed.
-	git apply --reverse "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" || :
+	case "$1" in
+		kconfig)
+			git apply --reverse "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" || :
+			;;
+		kselftest)
+			sed -e '0,/^all:$/s//\0 khdr/' -i tools/testing/selftests/Makefile || :
+			;;
+		*)
+			return 1
+			;;
+	esac
 }
 
-patch_source() {
+PATCHES=()
+
+unpatch_all() {
+	set -- "${PATCHES[@]}"
+
+	while [[ $# -ge 1 ]]; do
+		unpatch_item "$1"
+		shift
+	done
+}
+
+patch_kconfig() {
 	if [[ "${ARCH}" != "um" ]]; then
 		return
 	fi
 
 	if [[ -f security/landlock/Kconfig ]]; then
 		if git apply "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" 2>/dev/null; then
-			trap unpatch_source QUIT INT TERM EXIT
-			echo "[+] Patched for UML support"
+			PATCHES+=(kconfig)
+			trap unpatch_all QUIT INT TERM EXIT
+			echo "[+] Patched Kconfig for UML support"
 		fi
 	fi
 }
@@ -151,9 +173,11 @@ check_format() {
 
 check_build() {
 	if [[ "${ARCH}" == "um" ]]; then
-		# Only kselftest builds without warning, but not with old kernels.
+		# Only Kselftest builds without warning.
 		if [[ "${SOURCE_DIR##tools/}" == "${SOURCE_DIR}" ]]; then
 			return
+		else
+			patch_kselftest
 		fi
 	fi
 
@@ -171,6 +195,16 @@ check_source_dir() {
 	check_build
 
 	check_format
+}
+
+patch_kselftest() {
+	# Fixed with commit a52540522c95 ("selftests/landlock: Fix out-of-tree builds").
+	if grep -qE '^all: khdr$' tools/testing/selftests/Makefile; then
+		PATCHES+=(kselftest)
+		trap unpatch_all QUIT INT TERM EXIT
+		sed -e '0,/^all: khdr$/s//all:/' -i tools/testing/selftests/Makefile
+		echo "[+] Patched Kselftest"
+	fi
 }
 
 build_kselftest() {
@@ -252,17 +286,19 @@ run() {
 			run patch
 			;;
 		build)
-			patch_source
+			patch_kconfig
 			create_config
 			make_cmd
 			;;
 		lint)
-			check_source_dir security/landlock
+			# tools/testing/selftests must go first because of patch_kselftest()
 			check_source_dir tools/testing/selftests/landlock
+			check_source_dir security/landlock
 			check_source_dir samples/landlock
 			;;
 		kselftest)
 			install_headers
+			patch_kselftest
 			build_kselftest
 			run_kselftest
 			;;
