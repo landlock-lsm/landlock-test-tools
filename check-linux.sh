@@ -39,6 +39,11 @@ make_cmd() {
 	make "-j${NPROC}" "ARCH=${ARCH}" "CC=${CC}" "O=${O}" "$@"
 }
 
+unpatch_source() {
+	# Should always succeed.
+	git apply --reverse "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" || :
+}
+
 patch_source() {
 	if [[ "${ARCH}" != "um" ]]; then
 		return
@@ -46,6 +51,7 @@ patch_source() {
 
 	if [[ -f security/landlock/Kconfig ]]; then
 		if git apply "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" 2>/dev/null; then
+			trap unpatch_source QUIT INT TERM EXIT
 			echo "[+] Patched for UML support"
 		fi
 	fi
