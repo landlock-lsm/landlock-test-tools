@@ -5,7 +5,7 @@
 #
 # Build the kernel, samples, tests and check everything for Landlock.
 #
-# usage: [ARCH=um] [CC=gcc] check-linux.sh all|build|kselftest|kunit
+# usage: [ARCH=um] [CC=gcc] check-linux.sh <command>...
 
 set -e -u -o pipefail
 
@@ -21,17 +21,14 @@ BASE_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 if [[ -z "${ARCH:-}" ]]; then
 	export ARCH="um"
 fi
-echo "[*] Architecture: ${ARCH}"
 
 if [[ -z "${CC:-}" ]]; then
 	export CC="gcc"
 fi
-echo "[*] Compiler: ${CC}"
 
 if [[ -z "${O:-}" ]]; then
 	export O="./build-ll-${ARCH}-${CC}"
 fi
-echo "[*] Build directory: ${O}"
 
 NPROC="$(nproc)"
 
@@ -240,48 +237,56 @@ check_patch() {
 	./scripts/checkpatch.pl -g HEAD
 }
 
-check_all() {
-	patch_source
-	create_config
-
-	make_cmd
-	install_headers
-
-	check_source_dir security/landlock
-	check_source_dir tools/testing/selftests/landlock
-	check_source_dir samples/landlock
-
-	build_kselftest
-	run_kselftest
-
-	run_kunit
-
-	check_patch
-}
-
 exit_usage() {
-	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|kselftest|kunit" >&2
+	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|lint|kselftest|kunit|patch..." >&2
 	exit 1
 }
 
-case "${1:-}" in
-	all)
-		check_all
-		;;
-	build)
-		patch_source
-		create_config
-		make_cmd
-		;;
-	kselftest)
-		install_headers
-		build_kselftest
-		run_kselftest
-		;;
-	kunit)
-		run_kunit
-		;;
-	*)
-		exit_usage
-		;;
-esac
+run() {
+	case "${1:-}" in
+		all)
+			run build
+			run lint
+			run kselftest
+			run kunit
+			run patch
+			;;
+		build)
+			patch_source
+			create_config
+			make_cmd
+			;;
+		lint)
+			check_source_dir security/landlock
+			check_source_dir tools/testing/selftests/landlock
+			check_source_dir samples/landlock
+			;;
+		kselftest)
+			install_headers
+			build_kselftest
+			run_kselftest
+			;;
+		kunit)
+			run_kunit
+			;;
+		patch)
+			check_patch
+			;;
+		*)
+			exit_usage
+			;;
+	esac
+}
+
+if [[ $# -lt 1 ]]; then
+	exit_usage
+fi
+
+echo "[*] Architecture: ${ARCH}"
+echo "[*] Compiler: ${CC}"
+echo "[*] Build directory: ${O}"
+
+while [[ $# -ge 1 ]]; do
+	run "$1"
+	shift
+done
