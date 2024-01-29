@@ -45,6 +45,9 @@ unpatch_item() {
 		kselftest)
 			sed -e '0,/^all:$/s//\0 khdr/' -i tools/testing/selftests/Makefile || :
 			;;
+		format)
+			git checkout HEAD -- .clang-format
+			;;
 		*)
 			return 1
 			;;
@@ -152,6 +155,8 @@ check_format() {
 		# Checks for commit 781121a7f6d1 ("clang-format: Fix space after for_each macros").
 		local clang_format_compat="781121a7f6d11d7cae44982f174ea82adeec7db0"
 		if ! git merge-base --is-ancestor "${clang_format_compat}" HEAD; then
+			PATCHES+=(format)
+			trap unpatch_all QUIT INT TERM EXIT
 			git cat-file -p "${clang_format_compat}:.clang-format" > .clang-format
 		fi
 		local clang_version="16"
@@ -165,7 +170,6 @@ check_format() {
 			return 1
 		fi
 		"${clang_format}" --dry-run --Werror "${SOURCE_DIR}"/*.[ch]
-		git checkout HEAD -- .clang-format
 	else
 		echo "[-] Not checking with clang-format: ${SOURCE_DIR}"
 	fi
