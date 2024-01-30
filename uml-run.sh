@@ -51,7 +51,13 @@ if [[ ! -f "${KERNEL}" ]]; then
 	exit 1
 fi
 
-OUT_RET="$(mktemp --tmpdir= uml-ret.XXXXXXXXXX)"
+KERNEL_DIR="$(dirname -- "${KERNEL}")/"
+if [[ "${KERNEL_DIR}" =~ /tmp/*|/run/* ]]; then
+	echo "ERROR: The kernel must not be in /tmp nor /run: ${KERNEL_DIR}" >&2
+	exit 1
+fi
+
+OUT_RET="$(mktemp "--tmpdir=${KERNEL_DIR}" .uml-run-ret.XXXXXXXXXX)"
 
 cleanup() {
 	rm -- "${OUT_RET}"

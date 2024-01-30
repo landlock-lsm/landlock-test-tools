@@ -51,8 +51,10 @@ if [[ "${HOME:-/}" == / ]]; then
 	export HOME="$(getent passwd "${UML_UID}" | cut -d: -f6)"
 fi
 
+mount -t tmpfs -o "mode=1777,nosuid,nodev" tmpfs /tmp
+
 if [[ -z "${TMPDIR:-}" ]]; then
-	export TMPDIR="/run"
+	export TMPDIR="/tmp"
 fi
 
 cd "${UML_CWD}"
