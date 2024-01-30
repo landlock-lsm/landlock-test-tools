@@ -14,7 +14,7 @@ Build the kernel, samples, tests and check everything for Landlock.
 
 ```shell
 cd linux
-.../check-linux.sh all
+.../check-linux.sh build kselftest kunit
 ```
 
 ## rust-landlock
