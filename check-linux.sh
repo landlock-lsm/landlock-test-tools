@@ -235,12 +235,15 @@ build_kselftest() {
 }
 
 run_kselftest_uml() {
+	local timeout=20
+
 	# TODO: Use ./run_kselftest.sh --summary while catching test errors.
-	"${BASE_DIR}/uml-run.sh" \
+	timeout --signal KILL "${timeout}" </dev/null 2>&1 "${BASE_DIR}/uml-run.sh" \
 		"${O}/linux" \
 		-- \
 		"${BASE_DIR}/guest/kselftest.sh" \
-		"${O}/kselftest/kselftest_install/landlock"
+		"${O}/kselftest/kselftest_install/landlock" \
+		| timeout "$((timeout + 1))" cat
 }
 
 run_kselftest() {
