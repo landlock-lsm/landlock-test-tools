@@ -88,7 +88,9 @@ create_config() {
 	fi
 
 	echo "[+] Creating minimal configuration"
-	make_cmd KCONFIG_ALLCONFIG="${config}" allnoconfig
+	make_cmd \
+		KCONFIG_ALLCONFIG=<(sort -u -- "${config}" tools/testing/selftests/landlock/config) \
+		allnoconfig
 }
 
 install_headers() {
