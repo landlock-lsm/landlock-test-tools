@@ -295,6 +295,7 @@ run() {
 			make_cmd
 			;;
 		lint)
+			install_headers
 			# tools/testing/selftests must go first because of patch_kselftest()
 			check_source_dir tools/testing/selftests/landlock
 			check_source_dir security/landlock
