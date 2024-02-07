@@ -39,8 +39,11 @@ make_cmd() {
 unpatch_item() {
 	# Should always succeed.
 	case "$1" in
-		kconfig)
+		kernel_kconfig)
 			git apply --reverse "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" || :
+			;;
+		samples_kconfig)
+			git apply --reverse "${BASE_DIR}/kernels/0002-build-sandboxer-with-UML.patch" || :
 			;;
 		kselftest)
 			sed -e '0,/^all:$/s//\0 khdr/' -i tools/testing/selftests/Makefile || :
@@ -65,17 +68,28 @@ unpatch_all() {
 	done
 }
 
-patch_kconfig() {
+patch_kernel_kconfig() {
 	if [[ "${ARCH}" != "um" ]]; then
 		return
 	fi
 
-	if [[ -f security/landlock/Kconfig ]]; then
-		if git apply "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" 2>/dev/null; then
-			PATCHES+=(kconfig)
-			trap unpatch_all QUIT INT TERM EXIT
-			echo "[+] Patched Kconfig for UML support"
-		fi
+	if git apply "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" 2>/dev/null; then
+		PATCHES+=(kernel_kconfig)
+		trap unpatch_all QUIT INT TERM EXIT
+		echo "[+] Patched Landlock's Kconfig for UML support"
+	fi
+}
+
+patch_samples_kconfig() {
+	if [[ "${ARCH}" != "um" ]]; then
+		return
+	fi
+
+	# Requires headers to be installed.
+	if git apply "${BASE_DIR}/kernels/0002-build-sandboxer-with-UML.patch" 2>/dev/null; then
+		PATCHES+=(samples_kconfig)
+		trap unpatch_all QUIT INT TERM EXIT
+		echo "[+] Patched samples' Kconfig for UML support"
 	fi
 }
 
@@ -86,6 +100,9 @@ create_config() {
 		echo "ERROR: Architecture not supported" >&2
 		exit 1
 	fi
+
+	patch_kernel_kconfig
+	patch_samples_kconfig
 
 	echo "[+] Creating minimal configuration"
 	make_cmd \
@@ -101,6 +118,15 @@ install_headers() {
 		ARCH="um"
 	else
 		make_cmd headers_install
+	fi
+}
+
+build_main() {
+	make_cmd
+
+	if [[ ! -f "${O}/samples/landlock/sandboxer" ]]; then
+		echo "ERROR: Failed to build the sample"
+		exit 1
 	fi
 }
 
@@ -187,6 +213,8 @@ check_build() {
 		fi
 	fi
 
+	make_clean
+
 	check_sparse
 	# Put warning check in the middle to force the next C=1 build.
 	check_warning
@@ -195,8 +223,6 @@ check_build() {
 
 check_source_dir() {
 	set_source_dir "$1"
-
-	make_clean
 
 	check_build
 
@@ -295,9 +321,9 @@ run() {
 			run patch
 			;;
 		build)
-			patch_kconfig
 			create_config
-			make_cmd
+			install_headers
+			build_main
 			;;
 		lint)
 			install_headers

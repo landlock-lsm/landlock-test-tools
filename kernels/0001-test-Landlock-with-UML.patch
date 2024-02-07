@@ -10,8 +10,6 @@ https://git.kernel.org/stable/c/26642864f8b212964f80fbd69685eb850ced5f45
  security/landlock/Kconfig | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/security/landlock/Kconfig b/security/landlock/Kconfig
-index 8e33c4e8ffb8..c1e862a38410 100644
 --- a/security/landlock/Kconfig
 +++ b/security/landlock/Kconfig
 @@ -2,7 +2,7 @@
@@ -23,6 +21,3 @@ index 8e33c4e8ffb8..c1e862a38410 100644
  	select SECURITY_PATH
  	help
  	  Landlock is a sandboxing mechanism that enables processes to restrict
--- 
-2.41.0
-

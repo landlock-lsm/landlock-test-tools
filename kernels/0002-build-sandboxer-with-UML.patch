@@ -1,0 +1,20 @@
+From: Test Only <user@localhost>
+Subject: [PATCH] BUILD-WITH-INSTALLED-HEADERS: Enable to build sample on UML
+
+This is possible thanks to the hack to install headers with
+check-linux.sh
+---
+ samples/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/samples/Kconfig
++++ b/samples/Kconfig
+@@ -164,7 +164,7 @@ config SAMPLE_HIDRAW
+ 
+ config SAMPLE_LANDLOCK
+ 	bool "Landlock example"
+-	depends on CC_CAN_LINK && HEADERS_INSTALL
++	depends on CC_CAN_LINK
+ 	help
+ 	  Build a simple Landlock sandbox manager able to start a process
+ 	  restricted by a user-defined filesystem access control policy.
