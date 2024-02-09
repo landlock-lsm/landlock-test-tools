@@ -49,7 +49,7 @@ unpatch_item() {
 			sed -e '0,/^all:$/s//\0 khdr/' -i tools/testing/selftests/Makefile || :
 			;;
 		format)
-			git checkout HEAD -- .clang-format
+			git cat-file -p "HEAD:.clang-format" > .clang-format
 			;;
 		*)
 			return 1
