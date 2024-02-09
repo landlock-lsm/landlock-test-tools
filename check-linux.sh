@@ -187,16 +187,20 @@ check_format() {
 			trap unpatch_all QUIT INT TERM EXIT
 			git cat-file -p "${clang_format_compat}:.clang-format" > .clang-format
 		fi
-		local clang_version="16"
-		local clang_format="clang-format-${clang_version}"
-		if command -v "${clang_format}" &>/dev/null; then
-			:
-		elif clang-format --version | grep -qF " version ${clang_version}."; then
+		local last_version="16"
+		local first_version="14"
+		local clang_format
+		if command -v "clang-format-${last_version}" &>/dev/null; then
+			clang_format="clang-format-${last_version}"
+		elif command -v "clang-format-${first_version}" &>/dev/null; then
+			clang_format="clang-format-${first_version}"
+		elif clang-format --version | grep -qF " version ${last_version}."; then
 			clang_format="clang-format"
 		else
-			echo "ERROR: No clang-format ${clang_version} found." >&2
+			echo "ERROR: No clang-format ${first_version} or ${last_version} found." >&2
 			return 1
 		fi
+		echo "${clang_format}" --dry-run --Werror "${SOURCE_DIR}"/*.[ch]
 		"${clang_format}" --dry-run --Werror "${SOURCE_DIR}"/*.[ch]
 	else
 		echo "[-] Not checking with clang-format: ${SOURCE_DIR}"
