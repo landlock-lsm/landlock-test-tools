@@ -8,7 +8,7 @@ set -e -u -o pipefail
 
 cd "$1"
 
-for f in *_test; do
+while read f; do
 	echo "[+] Running $f:"
 	"./$f"
-done
+done < <(ls -1 *_test | sort)
