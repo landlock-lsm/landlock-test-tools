@@ -30,7 +30,7 @@ if [[ -z "${UML_UID:-}" ]]; then
 	exit_poweroff 1
 fi
 
-if [[ -z "${SYSTEMD_EXEC_PID:-}" ]]; then
+if [[ -z "${INVOCATION_ID:-}" ]]; then
 	echo "ERROR: This must be launched by systemd" >&2
 	exit_poweroff 1
 fi
@@ -64,7 +64,8 @@ fi
 cd "${UML_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
-CMD=(setpriv --inh-caps +all --ambient-caps +all --reuid "${UML_UID}" -- ${UML_EXEC})
+CAPS="$(setpriv --dump | sed -n -e 's/^Capability bounding set: \(.*\)$/+\1/p' | sed -e 's/,/,+/g')"
+CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${UML_UID}" -- ${UML_EXEC})
 
 echo "[*] Launching ${CMD[@]}"
 
