@@ -51,6 +51,10 @@ if [[ "${HOME:-/}" == / ]]; then
 	export HOME="$(getent passwd "${UML_UID}" | cut -d: -f6)"
 fi
 
+if [[ -h /tmp ]]; then
+	echo "ERROR: /tmp must not be a symlink" >&2
+	exit_poweroff 1
+fi
 mount -t tmpfs -o "mode=1777,nosuid,nodev" tmpfs /tmp
 
 if [[ -z "${TMPDIR:-}" ]]; then
