@@ -27,7 +27,7 @@ if [[ -z "${CC:-}" ]]; then
 fi
 
 if [[ -z "${O:-}" ]]; then
-	export O="./build-ll-${ARCH}-${CC}"
+	export O="./.out-landlock_local-${ARCH}-${CC}"
 fi
 
 NPROC="$(nproc)"
