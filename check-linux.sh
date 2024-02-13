@@ -358,6 +358,11 @@ echo "[*] Architecture: ${ARCH}"
 echo "[*] Compiler: ${CC}"
 echo "[*] Build directory: ${O}"
 
+if ! command -v git &>/dev/null; then
+	echo "ERROR: Unable to find the \"git\" command" >&2
+	exit 1
+fi
+
 while [[ $# -ge 1 ]]; do
 	run "$1"
 	shift
