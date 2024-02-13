@@ -52,7 +52,7 @@ if [[ ! -f "${KERNEL}" ]]; then
 fi
 
 KERNEL_DIR="$(dirname -- "${KERNEL}")/"
-if [[ "${KERNEL_DIR}" =~ /tmp/*|/run/* ]]; then
+if [[ "${KERNEL_DIR}" =~ ^/(tmp|run)/ ]]; then
 	echo "ERROR: The kernel must not be in /tmp nor /run: ${KERNEL_DIR}" >&2
 	exit 1
 fi
