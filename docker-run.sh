@@ -34,6 +34,14 @@ fi
 REPOSITORY="$(git rev-parse --path-format=absolute --git-common-dir)"
 WORKTREE="$(git rev-parse --path-format=absolute --show-toplevel)"
 
+ALTERNATE_FILE="${REPOSITORY}/objects/info/alternates"
+VOLUME_ALTERNATE=()
+if [[ -f "${ALTERNATE_FILE}" ]]; then
+	# Only support one alternate object store.
+	ALTERNATE_ENTRY="$(head -n 1 -- "${ALTERNATE_FILE}")"
+	VOLUME_ALTERNATE=(-v "${ALTERNATE_ENTRY}:${ALTERNATE_ENTRY}:ro")
+fi
+
 docker build \
 	--build-arg "BASE_DIR=${BASE_DIR}" \
 	--build-arg "WORKTREE=${WORKTREE}" \
@@ -51,6 +59,7 @@ docker run \
 	-v "${WORKTREE}:${WORKTREE}" \
 	-v "${REPOSITORY}:${REPOSITORY}:ro" \
 	-v "${BASE_DIR}:${BASE_DIR}:ro" \
+	"${VOLUME_ALTERNATE[@]}" \
 	-v /dev/shm:/dev/shm \
 	--rm \
 	"${IMAGE_NAME}"
