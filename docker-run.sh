@@ -22,7 +22,6 @@ SOURCE_IMAGE="${NAME%%/*}"
 TAG="${NAME##*/}"
 IMAGE_NAME="landlock-dev-${SOURCE_IMAGE}:${TAG}"
 IMAGE_DIR="${BASE_DIR}/containers/${SOURCE_IMAGE}/${TAG}"
-CONTAINER="${IMAGE_NAME//:/-}"
 
 if [[ ! -f "${IMAGE_DIR}/Dockerfile" ]]; then
 	echo "ERROR: Must use an existing image" >&2
@@ -35,9 +34,6 @@ fi
 REPOSITORY="$(git rev-parse --path-format=absolute --git-common-dir)"
 WORKTREE="$(git rev-parse --path-format=absolute --show-toplevel)"
 
-docker container kill "${CONTAINER}" 2>/dev/null || :
-docker container rm "${CONTAINER}" 2>/dev/null || :
-
 docker build \
 	--build-arg "BASE_DIR=${BASE_DIR}" \
 	--build-arg "WORKTREE=${WORKTREE}" \
@@ -49,8 +45,6 @@ docker build \
 	--tag "${IMAGE_NAME}" \
 	"${IMAGE_DIR}"
 
-echo "[*] Launching container ${CONTAINER}"
-
 docker run \
 	--cap-drop ALL \
 	-it \
@@ -58,5 +52,5 @@ docker run \
 	-v "${REPOSITORY}:${REPOSITORY}:ro" \
 	-v "${BASE_DIR}:${BASE_DIR}:ro" \
 	-v /dev/shm:/dev/shm \
-	--name "${CONTAINER}" \
+	--rm \
 	"${IMAGE_NAME}"
