@@ -8,6 +8,18 @@ built with the kernels/make-uml.sh script.
 
 uml-run.sh can be used to launch an UML kernel with an init test script.
 
+## docker-run
+
+Build a container to build the kernel, samples, tests and check everything for Landlock.
+
+Required installed and configured software: docker and optionally docker-buildx.
+
+```shell
+git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+cd linux
+.../docker-run.sh debian/sid
+```
+
 ## check-linux
 
 Build the kernel, samples, tests and check everything for Landlock.
