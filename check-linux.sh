@@ -303,7 +303,7 @@ run_kunit() {
 }
 
 check_patch() {
-	./scripts/checkpatch.pl -g HEAD
+	./scripts/checkpatch.pl --strict --codespell --git HEAD
 }
 
 exit_usage() {
