@@ -302,6 +302,26 @@ run_kunit() {
 	fi
 }
 
+check_doc_path() {
+	local path="$1"
+	local date="$(git log --no-walk '--date=format:%B %Y' --format=%ad HEAD -- "${path}")"
+
+	if [[ -z "${date}" ]]; then
+		return
+	fi
+
+	echo "[+] Checking date ${date} in ${path}"
+	if ! git show HEAD -- "${path}" | grep -q "^+:Date: ${date}\$"; then
+		echo "[-] Incorrect date"
+		return 1
+	fi
+}
+
+check_doc() {
+	check_doc_path Documentation/userspace-api/landlock.rst
+	check_doc_path Documentation/security/landlock.rst
+}
+
 check_patch() {
 	./scripts/checkpatch.pl --strict --codespell --git HEAD
 }
@@ -318,6 +338,7 @@ run() {
 			run lint
 			run kselftest
 			run kunit
+			run doc
 			run patch
 			;;
 		build)
@@ -340,6 +361,9 @@ run() {
 			;;
 		kunit)
 			run_kunit
+			;;
+		doc)
+			check_doc
 			;;
 		patch)
 			check_patch
