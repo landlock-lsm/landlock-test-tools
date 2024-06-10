@@ -328,6 +328,7 @@ check_doc_path() {
 check_doc() {
 	check_doc_path Documentation/userspace-api/landlock.rst
 	check_doc_path Documentation/security/landlock.rst
+	./scripts/kernel-doc -Werror -none include/uapi/linux/landlock.h security/landlock/*.h
 }
 
 check_patch() {
@@ -335,7 +336,7 @@ check_patch() {
 }
 
 exit_usage() {
-	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|lint|kselftest|kunit|patch..." >&2
+	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|lint|kselftest|kunit|doc|patch..." >&2
 	exit 1
 }
 
