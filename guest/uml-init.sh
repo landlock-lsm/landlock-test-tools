@@ -61,6 +61,8 @@ if [[ -z "${TMPDIR:-}" ]]; then
 	export TMPDIR="/tmp"
 fi
 
+dmesg --console-level warn
+
 cd "${UML_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
