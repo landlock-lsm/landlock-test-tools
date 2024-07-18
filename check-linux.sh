@@ -319,7 +319,7 @@ check_doc_path() {
 	fi
 
 	echo "[+] Checking date ${date} in ${path}"
-	if ! git show HEAD -- "${path}" | grep -q "^+:Date: ${date}\$"; then
+	if ! grep -q "^:Date: ${date}\$" -- "${path}"; then
 		echo "[-] Incorrect date"
 		return 1
 	fi
