@@ -103,6 +103,7 @@ patch_samples_kconfig() {
 # - check: Build the kernel with runtime checks.
 create_config() {
 	local config_arch="${BASE_DIR}/kernels/config-mini-${ARCH}"
+	local config_arch_check="tools/testing/selftests/landlock/config.${ARCH}"
 	local config_landlock="tools/testing/selftests/landlock/config"
 	local config_all=(
 		"${config_arch}"
@@ -110,6 +111,9 @@ create_config() {
 
 	if [[ "${1:-}" = "check" ]]; then
 		config_all+=("${BASE_DIR}/kernels/config-check")
+		if [[ -f "${config_arch_check}" ]]; then
+			config_all+=("${config_arch_check}")
+		fi
 	fi
 
 	if [[ ! -f "${config_arch}" ]]; then
