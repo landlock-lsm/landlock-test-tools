@@ -30,6 +30,11 @@ if [[ -z "${O:-}" ]]; then
 	export O="./.out-landlock_local-${ARCH}-${CC}"
 fi
 
+# Required for a deterministic Linux kernel.
+export KBUILD_BUILD_USER="root"
+export KBUILD_BUILD_HOST="localhost"
+export KBUILD_BUILD_TIMESTAMP="$(git log --no-walk --pretty=format:%aD)"
+
 NPROC="$(nproc)"
 
 make_cmd() {
@@ -93,20 +98,33 @@ patch_samples_kconfig() {
 	fi
 }
 
+# First argument may be:
+# - light: Only build the kernel, not the sample.
 create_config() {
-	local config="${BASE_DIR}/kernels/config-mini-${ARCH}"
+	local config_arch="${BASE_DIR}/kernels/config-mini-${ARCH}"
+	local config_landlock="tools/testing/selftests/landlock/config"
+	local config_all=(
+		"${config_arch}"
+	)
 
-	if [[ ! -f "${config}" ]]; then
+	if [[ ! -f "${config_arch}" ]]; then
 		echo "ERROR: Architecture not supported" >&2
 		exit 1
 	fi
 
+	if [[ -f "${config_landlock}" ]]; then
+		config_all+=("${config_landlock}")
+	fi
+
 	patch_kernel_kconfig
-	patch_samples_kconfig
+
+	if [[ "${1:-}" != "light" ]]; then
+		patch_samples_kconfig
+	fi
 
 	echo "[+] Creating minimal configuration"
 	make_cmd \
-		KCONFIG_ALLCONFIG=<(sort -u -- "${config}" tools/testing/selftests/landlock/config) \
+		KCONFIG_ALLCONFIG=<(sort -u -- "${config_all[@]}") \
 		allnoconfig
 }
 
@@ -121,10 +139,12 @@ install_headers() {
 	fi
 }
 
+# First argument may be:
+# - light: Only build the kernel, not the sample.
 build_main() {
 	make_cmd
 
-	if [[ ! -f "${O}/samples/landlock/sandboxer" ]]; then
+	if [[ "${1:-}" != "light" ]] && [[ ! -f "${O}/samples/landlock/sandboxer" ]]; then
 		echo "ERROR: Failed to build the sample"
 		exit 1
 	fi
@@ -336,7 +356,7 @@ check_patch() {
 }
 
 exit_usage() {
-	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|lint|kselftest|kunit|doc|patch..." >&2
+	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|lint|kselftest|kunit|doc|patch..." >&2
 	exit 1
 }
 
@@ -354,6 +374,18 @@ run() {
 			create_config
 			install_headers
 			build_main
+			;;
+		build_light)
+			# Required for a deterministic Linux kernel.
+			if [[ -e "${O}/.version" ]]; then
+				rm "${O}/.version"
+			fi
+			create_config light
+			install_headers
+			build_main light
+			if [[ "${ARCH}" = "um" ]]; then
+				strip "${O}/linux"
+			fi
 			;;
 		lint)
 			install_headers
