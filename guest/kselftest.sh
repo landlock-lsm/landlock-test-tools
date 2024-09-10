@@ -11,4 +11,8 @@ cd "$1"
 while read f; do
 	echo "[+] Running $f:"
 	"./$f"
+
+	if dmesg --notime --kernel | grep '^\(BUG\|WARNING\):'; then
+		exit 1
+	fi
 done < <(ls -1 *_test | sort)

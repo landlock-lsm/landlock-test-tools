@@ -100,12 +100,17 @@ patch_samples_kconfig() {
 
 # First argument may be:
 # - light: Only build the kernel, not the sample.
+# - check: Build the kernel with runtime checks.
 create_config() {
 	local config_arch="${BASE_DIR}/kernels/config-mini-${ARCH}"
 	local config_landlock="tools/testing/selftests/landlock/config"
 	local config_all=(
 		"${config_arch}"
 	)
+
+	if [[ "${1:-}" = "check" ]]; then
+		config_all+=("${BASE_DIR}/kernels/config-check")
+	fi
 
 	if [[ ! -f "${config_arch}" ]]; then
 		echo "ERROR: Architecture not supported" >&2
@@ -371,7 +376,7 @@ run() {
 			run patch
 			;;
 		build)
-			create_config
+			create_config check
 			install_headers
 			build_main
 			;;

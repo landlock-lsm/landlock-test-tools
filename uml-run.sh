@@ -73,6 +73,7 @@ echo "[*] Booting kernel ${KERNEL}"
 	"root=98:0" \
 	"rw" \
 	"console=tty0" \
+	"mem=128M" \
 	"quiet" \
 	"SYSTEMD_UNIT_PATH=${BASE_DIR}/guest/systemd" \
 	"PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \

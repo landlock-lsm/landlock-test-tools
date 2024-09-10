@@ -63,6 +63,12 @@ fi
 
 dmesg --console-level warn
 
+echo 1 > /proc/sys/kernel/panic_on_oops
+echo 1 > /proc/sys/kernel/panic_on_warn
+echo 1 > /proc/sys/vm/panic_on_oom
+
+echo -1 > /proc/sys/kernel/panic
+
 cd "${UML_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
