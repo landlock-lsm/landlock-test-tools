@@ -21,22 +21,6 @@ BASE_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 KERNEL="$1"
 shift
 
-has_double_dash() {
-	local arg
-
-	for arg in "$@"; do
-		if [[ "${arg}" == "--" ]]; then
-			return 0
-		fi
-	done
-	return 1
-}
-
-if ! has_double_dash "$@"; then
-	echo "ERROR: Missing '--' argument" >&2
-	exit 1
-fi
-
 # Looks first for a known kernel.
 KERNEL_ARTIFACT="${BASE_DIR}/kernels/artifacts/${KERNEL}"
 if [[ "${KERNEL}" == "$(basename -- "${KERNEL}")" ]] && [[ -f "${KERNEL_ARTIFACT}" ]]; then
@@ -67,20 +51,37 @@ trap cleanup QUIT INT TERM EXIT
 
 echo "[*] Booting kernel ${KERNEL}"
 
-"${KERNEL}" \
-	"rootfstype=hostfs" \
+FOUND_USERSPACE_CMDLINE=0
+KERNEL_CMDLINE=$(echo "rootfstype=hostfs" \
 	"rootflags=/" \
 	"root=98:0" \
 	"rw" \
 	"console=tty0" \
 	"mem=128M" \
 	"quiet" \
-	"SYSTEMD_UNIT_PATH=${BASE_DIR}/guest/systemd" \
 	"PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
 	"TERM=${TERM:-linux}" \
 	"UML_UID=$(id -u)" \
 	"UML_CWD=$(pwd)" \
-	"UML_RET=${OUT_RET}" \
-	$*
+	"UML_RET=${OUT_RET}")
+for arg in "$@"; do
+	# This script uses -- in its arguments to split between {UML
+	# kernel and environment variables} -- {UML userspace command}.
+	# The -- in the kernel commandline will be parsed by the kernel
+	# itself as the split between the init path and arguments to be
+	# passed as argv[1..] to the init (/bin/bash)
+	if [[ "${arg}" == "--" ]]; then
+		FOUND_USERSPACE_CMDLINE=1
+		KERNEL_CMDLINE="${KERNEL_CMDLINE} init=/bin/bash -- $BASE_DIR/guest/uml-init.sh"
+	else
+		KERNEL_CMDLINE="${KERNEL_CMDLINE} $arg"
+	fi
+done
+if [[ $FOUND_USERSPACE_CMDLINE -eq 0 ]]; then
+	echo "ERROR: Missing '--' argument" >&2
+	exit 1
+fi
+
+"${KERNEL}" $KERNEL_CMDLINE
 
 exit "$(< "${OUT_RET}")"

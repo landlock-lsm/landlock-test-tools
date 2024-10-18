@@ -22,7 +22,7 @@ exit_poweroff() {
 	if [[ -n "${UML_RET:-}" ]]; then
 		echo "$1" > "${UML_RET}"
 	fi
-	exec poweroff -f
+	exec /usr/sbin/poweroff -f
 }
 
 if [[ -z "${UML_UID:-}" ]]; then
@@ -30,18 +30,11 @@ if [[ -z "${UML_UID:-}" ]]; then
 	exit_poweroff 1
 fi
 
-if [[ -z "${INVOCATION_ID:-}" ]]; then
-	echo "ERROR: This must be launched by systemd" >&2
-	exit_poweroff 1
-fi
-
-UML_EXEC="$(< /proc/cmdline)"
-UML_EXEC="${UML_EXEC#* --}"
-
-if [[ -z "${UML_EXEC}" ]]; then
-	echo "ERROR: Missing command" >&2
-	exit_poweroff 1
-fi
+# Setup usually done by an actual init system (we use bash directly because
+# we just want to run a single commandline, and this avoids adding a
+# dependency on a given init system on the host filesystem)
+mount -t proc proc /proc
+ln -s /proc/self/fd/ /dev/fd
 
 if [[ -z "${PATH:-}" ]]; then
 	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
@@ -73,7 +66,7 @@ cd "${UML_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
 CAPS="$(setpriv --dump | sed -n -e 's/^Capability bounding set: \(.*\)$/+\1/p' | sed -e 's/,/,+/g')"
-CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${UML_UID}" -- ${UML_EXEC})
+CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${UML_UID}" -- "$@")
 
 echo "[*] Launching ${CMD[@]}"
 
