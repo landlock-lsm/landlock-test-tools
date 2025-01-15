@@ -365,7 +365,7 @@ check_patch() {
 }
 
 exit_usage() {
-	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|lint|kselftest|kunit|doc|patch..." >&2
+	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|lint|build_kselftest|kselftest|kunit|doc|patch..." >&2
 	exit 1
 }
 
@@ -403,10 +403,13 @@ run() {
 			check_source_dir security/landlock
 			check_source_dir samples/landlock
 			;;
-		kselftest)
+		build_kselftest)
 			install_headers
 			patch_kselftest
 			build_kselftest
+			;;
+		kselftest)
+			run build_kselftest
 			run_kselftest
 			;;
 		kunit)
