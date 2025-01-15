@@ -221,7 +221,7 @@ check_format() {
 		local clang_format=""
 		local version
 		for version in $(seq "${last_version}" -1 "${first_version}"); do
-			if clang-format --version | grep -qF " version ${version}."; then
+			if clang-format --version 2>/dev/null | grep -qF " version ${version}."; then
 				clang_format="clang-format"
 				break
 			elif command -v "clang-format-${version}" &>/dev/null; then
