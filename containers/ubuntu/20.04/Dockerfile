@@ -43,6 +43,7 @@ RUN apt install --yes --no-install-recommends \
 	iproute2 \
 	libc6-dev \
 	libcap-dev \
+	libelf-dev \
 	python3 \
 	rsync \
 	sparse \
