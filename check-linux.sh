@@ -216,7 +216,7 @@ check_format() {
 			trap unpatch_all QUIT INT TERM EXIT
 			git cat-file -p "${clang_format_compat}:.clang-format" > .clang-format
 		fi
-		local last_version="18"
+		local last_version="19"
 		local first_version="14"
 		local clang_format=""
 		local version
