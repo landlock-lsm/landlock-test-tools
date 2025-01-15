@@ -36,7 +36,7 @@ FROM common as target
 RUN apt install --yes --no-install-recommends \
 	bc \
 	bison \
-	clang-format-16 \
+	clang-format-17 \
 	flex \
 	gcc \
 	git \
