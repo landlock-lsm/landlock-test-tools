@@ -49,7 +49,7 @@ docker build \
 	--build-arg "GROUP=$(id -gn)" \
 	--build-arg "UID=$(id -u)" \
 	--build-arg "GID=$(id -g)" \
-	--build-arg "SMATCH_REF=2b596bf0d9bc4d0e8dbe3c6d73ef0fbf9a4d1337" \
+	--build-arg "SMATCH_REF=1805d8ab5fb06a176404b52774d124de7f2591ed" \
 	--tag "${IMAGE_NAME}" \
 	"${IMAGE_DIR}"
 
