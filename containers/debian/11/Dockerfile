@@ -27,8 +27,8 @@ RUN git init /tmp/smatch
 WORKDIR /tmp/smatch
 ARG SMATCH_REF
 RUN git remote add origin https://repo.or.cz/smatch.git && \
-	git fetch --depth 1 origin $SMATCH_REF && \
-	git reset --hard FETCH_HEAD
+	git fetch --no-tags origin master && \
+	git reset --hard $SMATCH_REF
 RUN make -j$(nproc)
 
 FROM common as target
