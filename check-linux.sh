@@ -5,6 +5,9 @@
 #
 # Build the kernel, samples, tests and check everything for Landlock.
 #
+# Dependencies:
+# - virtme-ng (to run kselftest on x86_64)
+#
 # usage: [ARCH=um] [CC=gcc] check-linux.sh <command>...
 
 set -e -u -o pipefail
@@ -359,10 +362,24 @@ run_kselftest_uml() {
 		| timeout "$((timeout + 1))" cat
 }
 
+run_kselftest_x86() {
+	local timeout=180
+
+	timeout --signal KILL "${timeout}" </dev/null 2>&1 "${BASE_DIR}/x86-run.sh" \
+		"${O}/arch/x86/boot/bzImage" \
+		-- \
+		"${BASE_DIR}/guest/kselftest.sh" \
+		"${O}/kselftest/kselftest_install/landlock" \
+		| timeout "$((timeout + 1))" cat
+}
+
 run_kselftest() {
 	case "${ARCH}" in
 		um)
 			run_kselftest_uml
+			;;
+		x86_64)
+			run_kselftest_x86
 			;;
 		*)
 			echo "ERROR: Architecture not supported" >&2

@@ -18,6 +18,10 @@
 
 set -e -u -o pipefail
 
+if [[ -n "${TEST_PATH:-}" ]]; then
+	export PATH="${TEST_PATH}"
+fi
+
 if [[ -z "${PATH:-}" ]]; then
 	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 fi
@@ -54,15 +58,7 @@ if [[ -z "${TEST_UID:-}" ]]; then
 	exit_poweroff 1
 fi
 
-if [[ -z "${INVOCATION_ID:-}" ]]; then
-	echo "ERROR: This must be launched by systemd" >&2
-	exit_poweroff 1
-fi
-
-TEST_EXEC="$(< /proc/cmdline)"
-TEST_EXEC="${TEST_EXEC#* --}"
-
-if [[ -z "${TEST_EXEC}" ]]; then
+if [[ -z "${TEST_EXEC:-}" ]]; then
 	echo "ERROR: Missing command" >&2
 	exit_poweroff 1
 fi
@@ -110,7 +106,7 @@ cd "${TEST_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
 CAPS="$(setpriv --dump | sed -n -e 's/^Capability bounding set: \(.*\)$/+\1/p' | sed -e 's/,/,+/g')"
-CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${TEST_UID}" -- ${TEST_EXEC})
+CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${TEST_UID}" -- $(printf "%s" "${TEST_EXEC}" | base64 -d))
 
 echo "[*] Launching ${CMD[@]}"
 

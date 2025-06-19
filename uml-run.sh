@@ -6,13 +6,13 @@
 # Launch a minimal User-Mode Linux system to run all Landlock tests.
 #
 # Examples:
-# ./uml-run.sh linux-6.1 HISTFILE=/dev/null -- bash -i
+# ./uml-run.sh linux-6.1 -- bash -i
 # ./uml-run.sh .../linux -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
 
 set -e -u -o pipefail
 
-if [[ $# -lt 2 ]]; then
-	echo "usage: ${BASH_SOURCE[0]} <linux-uml-kernel> [VAR=value]... -- <exec-path> [exec-arg]..." >&2
+if [[ $# -lt 3 ]]; then
+	echo "usage: ${BASH_SOURCE[0]} <linux-uml-kernel> -- <exec-path> [exec-arg]..." >&2
 	exit 1
 fi
 
@@ -21,21 +21,11 @@ BASE_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 KERNEL="$1"
 shift
 
-has_double_dash() {
-	local arg
-
-	for arg in "$@"; do
-		if [[ "${arg}" == "--" ]]; then
-			return 0
-		fi
-	done
-	return 1
-}
-
-if ! has_double_dash "$@"; then
+if [[ "${1:-}" != "--" ]] then
 	echo "ERROR: Missing '--' argument" >&2
 	exit 1
 fi
+shift
 
 # Looks first for a known kernel.
 KERNEL_ARTIFACT="${BASE_DIR}/kernels/artifacts/${KERNEL}"
@@ -81,6 +71,6 @@ echo "[*] Booting kernel ${KERNEL}"
 	"TEST_UID=$(id -u)" \
 	"TEST_CWD=$(pwd)" \
 	"TEST_RET=${OUT_RET}" \
-	$*
+	"TEST_EXEC=$(printf "%s" "$*" | base64 --wrap=0)"
 
 exit "$(< "${OUT_RET}")"

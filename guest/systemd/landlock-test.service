@@ -6,7 +6,7 @@ DefaultDependencies=no
 ExecStart=bash init.sh
 Type=idle
 PassEnvironment=PATH TERM \
-		TEST_UID TEST_CWD TEST_RET\
+		TEST_UID TEST_CWD TEST_RET TEST_EXEC \
 		LANDLOCK_CRATE_TEST_ABI
 StandardInput=tty
 StandardOutput=inherit

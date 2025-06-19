@@ -35,6 +35,10 @@ In order to test more filesystems, these commands should be installed:
 * [diod](https://github.com/chaos/diod) (9p filesystem)
 * [bindfs](https://github.com/mpartel/bindfs) (FUSE filesystem)
 
+To build and test against an x86\_64 architecture, these commands should be
+installed:
+* [virtme-ng](https://github.com/arighi/virtme-ng)
+
 ## rust-landlock
 
 test-rust.sh can be used to test the Landlock crate against a specific kernel
