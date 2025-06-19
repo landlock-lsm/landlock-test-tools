@@ -8,12 +8,12 @@
 # This cannot be used to run an interactive shell yet (see SSH notes).
 #
 # Examples:
-# ./x86-run.sh .../arch/x86/boot/bzImage -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
+# ./x86-run.sh .../arch/x86/boot/bzImage .../coverage_dir -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
 
 set -e -u -o pipefail
 
-if [[ $# -lt 2 ]]; then
-	echo "usage: ${BASH_SOURCE[0]} <linux-x86-kernel> -- <exec-path> [exec-arg]..." >&2
+if [[ $# -lt 3 ]]; then
+	echo "usage: ${BASH_SOURCE[0]} <linux-x86-kernel> [coverage_dir] -- <exec-path> [exec-arg]..." >&2
 	exit 1
 fi
 
@@ -27,6 +27,15 @@ if [[ ! -f "${KERNEL}" ]]; then
 fi
 shift
 
+COVERAGE_DIR=""
+if [[ "${1:-}" != "--" ]] then
+	COVERAGE_DIR="$1"
+	if [[ ! -d "${COVERAGE_DIR}" ]] then
+		echo "ERROR: Not a directory: ${COVERAGE_DIR}" >&2
+		exit 1
+	fi
+	shift
+fi
 
 if [[ "${1:-}" != "--" ]] then
 	echo "ERROR: Missing '--' argument" >&2
@@ -71,10 +80,16 @@ echo "[*] Booting kernel ${KERNEL}"
 # vng --ssh
 # ssh -F ~/.cache/virtme-ng/.ssh/virtme-ng-ssh.conf -o IdentityFile=~/.ssh/id_virtme-ng-landlock-test -l root ssh://virtme-ng:2222
 
+ARGS=()
+if [[ -n "${COVERAGE_DIR}" ]]; then
+	ARGS+=(--rwdir "${COVERAGE_DIR}")
+fi
+
 vng --run "${KERNEL}" \
 	--verbose \
 	--user root \
 	--rwdir "${OUT_DIR}" \
+	"${ARGS[@]}" \
 	--append "loglevel=4" \
 	--append "TEST_PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
 	--append "TERM=${TERM:-linux}" \

@@ -6,7 +6,9 @@
 
 set -e -u -o pipefail
 
-cd "$1"
+pushd "$1"
+
+COVERAGE_DIR="${2:-}"
 
 while read f; do
 	echo "[+] Running $f:"
@@ -16,3 +18,11 @@ while read f; do
 		exit 1
 	fi
 done < <(ls -1 *_test | sort)
+
+popd
+
+if [[ -n "${COVERAGE_DIR}" ]]; then
+	echo "[+] Gathering coverage"
+	rm "${COVERAGE_DIR}/gcov.tar.gz" 2>/dev/null || :
+	gcov_gather_on_test.sh "${COVERAGE_DIR}/gcov.tar.gz"
+fi

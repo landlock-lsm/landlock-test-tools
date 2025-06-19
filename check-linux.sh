@@ -30,8 +30,9 @@ if [[ -z "${CC:-}" ]]; then
 fi
 
 if [[ -z "${O:-}" ]]; then
-	export O="./.out-landlock_local-${ARCH}-${CC}"
+	O="./.out-landlock_local-${ARCH}-${CC}"
 fi
+export O="$(readlink -f "${O}")"
 
 # Required for a deterministic Linux kernel.
 export KBUILD_BUILD_USER="root"
@@ -362,15 +363,68 @@ run_kselftest_uml() {
 		| timeout "$((timeout + 1))" cat
 }
 
+gcov_extract() {
+	local coverage_dir="${1:-}"
+	local gcov_dir
+
+	if [[ -z "${coverage_dir}" ]]; then
+		return
+	fi
+
+	gcov_dir="${coverage_dir}/gcov"
+	mkdir -- "${gcov_dir}"
+	tar --touch -C "${gcov_dir}" -xf "${coverage_dir}/gcov.tar.gz"
+
+	# Creates test coverage data file.
+	lcov \
+		--gcov-tool "${BASE_DIR}/llvm-gcov.sh" \
+		--ignore-errors inconsistent,inconsistent \
+		--quiet \
+		--capture \
+		--directory "${gcov_dir}" \
+		--output-file "${coverage_dir}/landlock.info"
+
+	# Generates web pages.
+	genhtml -q -o "${coverage_dir}/html" "${coverage_dir}/landlock.info"
+
+	# Prints result.
+	local gcov_version="$("${BASE_DIR}/llvm-gcov.sh" --version | sed -ne 's/^ *LLVM version \([0-9]\+\)\..*$/\1/p')"
+	lcov --extract "${coverage_dir}/landlock.info" security/landlock \
+		-o /dev/null | \
+			sed -n "s#^ \+lines\.\+: \([0-9.]\+%\) ([0-9]\+ of \([0-9]\+\) lines)\$#Test coverage for security/landlock is \1 of \2 lines according to\nLLVM ${gcov_version}.#p"
+
+	rm -- "${coverage_dir}/gcov.tar.gz"
+	rm -r  -- "${gcov_dir}"
+}
+
 run_kselftest_x86() {
 	local timeout=180
+	local coverage_dir=""
+	local inc="$(date +%s)"
+
+	if grep -q "^CONFIG_GCOV_KERNEL=y$" "${O}/.config"; then
+		if grep -q "^CONFIG_CC_IS_CLANG=y$" "${O}/.config"; then
+			coverage_dir="${O}/coverage-${inc}-${CURRENT_COMMIT}"
+			mkdir -- "${coverage_dir}"
+			echo "[+] Testing and generating coverage in ${coverage_dir}"
+		else
+			# Some GCC versions don't work.
+			echo "[*] No test coverage without clang"
+		fi
+	else
+		echo "[+] Testing (without coverage)"
+	fi
 
 	timeout --signal KILL "${timeout}" </dev/null 2>&1 "${BASE_DIR}/x86-run.sh" \
 		"${O}/arch/x86/boot/bzImage" \
+		"${coverage_dir}" \
 		-- \
 		"${BASE_DIR}/guest/kselftest.sh" \
 		"${O}/kselftest/kselftest_install/landlock" \
+		${coverage_dir} \
 		| timeout "$((timeout + 1))" cat
+
+	gcov_extract "${coverage_dir}"
 }
 
 run_kselftest() {
