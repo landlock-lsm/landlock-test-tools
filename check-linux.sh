@@ -26,7 +26,12 @@ if [[ -z "${ARCH:-}" ]]; then
 fi
 
 if [[ -z "${CC:-}" ]]; then
-	export CC="gcc"
+	if [[ "${ARCH}" = "um" ]]; then
+		# clang requires CROSS_COMPILE
+		export CC="gcc"
+	else
+		export CC="clang"
+	fi
 fi
 
 if [[ -z "${O:-}" ]]; then

@@ -38,6 +38,7 @@ In order to test more filesystems, these commands should be installed:
 To build and test against an x86\_64 architecture, these commands should be
 installed:
 * [virtme-ng](https://github.com/arighi/virtme-ng)
+* [clang](https://github.com/llvm/llvm-project)
 
 ## rust-landlock
 
