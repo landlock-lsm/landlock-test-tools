@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-2.0
 #
-# Copyright © 2014-2023 Mickaël Salaün <mic@digikod.net>
+# Copyright © 2014-2025 Mickaël Salaün <mic@digikod.net>
 #
 # Init task for an User-Mode Linux kernel, designed to be launched by
 # uml-run.sh
@@ -10,22 +10,22 @@
 # enough to run all Landlock tests.
 #
 # Required boot variables:
-# - UML_UID
-# - UML_CWD
+# - TEST_UID
+# - TEST_CWD
 #
 # Optional boot variable:
-# - UML_RET
+# - TEST_RET
 
 set -e -u -o pipefail
 
 exit_poweroff() {
-	if [[ -n "${UML_RET:-}" ]]; then
-		echo "$1" > "${UML_RET}"
+	if [[ -n "${TEST_RET:-}" ]]; then
+		echo "$1" > "${TEST_RET}"
 	fi
 	exec poweroff -f
 }
 
-if [[ -z "${UML_UID:-}" ]]; then
+if [[ -z "${TEST_UID:-}" ]]; then
 	echo "ERROR: This must be launched by uml-run.sh" >&2
 	exit_poweroff 1
 fi
@@ -35,10 +35,10 @@ if [[ -z "${INVOCATION_ID:-}" ]]; then
 	exit_poweroff 1
 fi
 
-UML_EXEC="$(< /proc/cmdline)"
-UML_EXEC="${UML_EXEC#* --}"
+TEST_EXEC="$(< /proc/cmdline)"
+TEST_EXEC="${TEST_EXEC#* --}"
 
-if [[ -z "${UML_EXEC}" ]]; then
+if [[ -z "${TEST_EXEC}" ]]; then
 	echo "ERROR: Missing command" >&2
 	exit_poweroff 1
 fi
@@ -48,7 +48,7 @@ if [[ -z "${PATH:-}" ]]; then
 fi
 
 if [[ "${HOME:-/}" == / ]]; then
-	export HOME="$(getent passwd "${UML_UID}" | cut -d: -f6)"
+	export HOME="$(getent passwd "${TEST_UID}" | cut -d: -f6)"
 fi
 
 if [[ -h /tmp ]]; then
@@ -69,11 +69,11 @@ echo 1 > /proc/sys/vm/panic_on_oom
 
 echo -1 > /proc/sys/kernel/panic
 
-cd "${UML_CWD}"
+cd "${TEST_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
 CAPS="$(setpriv --dump | sed -n -e 's/^Capability bounding set: \(.*\)$/+\1/p' | sed -e 's/,/,+/g')"
-CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${UML_UID}" -- ${UML_EXEC})
+CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${TEST_UID}" -- ${TEST_EXEC})
 
 echo "[*] Launching ${CMD[@]}"
 

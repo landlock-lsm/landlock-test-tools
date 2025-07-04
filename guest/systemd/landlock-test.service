@@ -3,10 +3,10 @@ Description=Run Landlock test
 DefaultDependencies=no
 
 [Service]
-ExecStart=bash uml-init.sh
+ExecStart=bash init.sh
 Type=idle
 PassEnvironment=PATH TERM \
-		UML_UID UML_CWD UML_RET\
+		TEST_UID TEST_CWD TEST_RET\
 		LANDLOCK_CRATE_TEST_ABI
 StandardInput=tty
 StandardOutput=inherit

@@ -78,9 +78,9 @@ echo "[*] Booting kernel ${KERNEL}"
 	"SYSTEMD_UNIT_PATH=${BASE_DIR}/guest/systemd" \
 	"PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
 	"TERM=${TERM:-linux}" \
-	"UML_UID=$(id -u)" \
-	"UML_CWD=$(pwd)" \
-	"UML_RET=${OUT_RET}" \
+	"TEST_UID=$(id -u)" \
+	"TEST_CWD=$(pwd)" \
+	"TEST_RET=${OUT_RET}" \
 	$*
 
 exit "$(< "${OUT_RET}")"
