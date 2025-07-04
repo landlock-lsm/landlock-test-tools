@@ -18,6 +18,18 @@
 
 set -e -u -o pipefail
 
+if [[ -z "${PATH:-}" ]]; then
+	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
+fi
+
+dmesg --console-level warn
+
+echo 1 > /proc/sys/kernel/panic_on_oops
+echo 1 > /proc/sys/kernel/panic_on_warn
+echo 1 > /proc/sys/vm/panic_on_oom
+
+echo -1 > /proc/sys/kernel/panic
+
 exit_poweroff() {
 	if [[ -n "${TEST_RET:-}" ]]; then
 		echo "$1" > "${TEST_RET}"
@@ -43,10 +55,6 @@ if [[ -z "${TEST_EXEC}" ]]; then
 	exit_poweroff 1
 fi
 
-if [[ -z "${PATH:-}" ]]; then
-	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
-fi
-
 if [[ "${HOME:-/}" == / ]]; then
 	export HOME="$(getent passwd "${TEST_UID}" | cut -d: -f6)"
 fi
@@ -60,14 +68,6 @@ mount -t tmpfs -o "mode=1777,nosuid,nodev" tmpfs /tmp
 if [[ -z "${TMPDIR:-}" ]]; then
 	export TMPDIR="/tmp"
 fi
-
-dmesg --console-level warn
-
-echo 1 > /proc/sys/kernel/panic_on_oops
-echo 1 > /proc/sys/kernel/panic_on_warn
-echo 1 > /proc/sys/vm/panic_on_oom
-
-echo -1 > /proc/sys/kernel/panic
 
 cd "${TEST_CWD}"
 
