@@ -33,6 +33,7 @@ cd linux
 
 In order to test more filesystems, these commands should be installed:
 * [diod](https://github.com/chaos/diod) (9p filesystem)
+* [bindfs](https://github.com/mpartel/bindfs) (FUSE filesystem)
 
 ## rust-landlock
 

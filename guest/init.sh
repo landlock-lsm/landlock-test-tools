@@ -85,6 +85,15 @@ else
 	echo "WARNING: Could not find the diod command." >&2
 fi
 
+if command -v bindfs >/dev/null; then
+	mkdir /mnt/test-fuse-src
+	chmod 1777 /mnt/test-fuse-src
+	mkdir /mnt/test-fuse
+	bindfs /mnt/test-fuse-src /mnt/test-fuse
+else
+	echo "WARNING: Could not find the bindfs command." >&2
+fi
+
 cd "${TEST_CWD}"
 
 # Keeps root's capabilities but switches to the current user.
