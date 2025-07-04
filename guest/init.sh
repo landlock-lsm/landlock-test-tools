@@ -69,6 +69,22 @@ if [[ -z "${TMPDIR:-}" ]]; then
 	export TMPDIR="/tmp"
 fi
 
+if [[ ! -d /mnt ]]; then
+	mkdir /mnt
+fi
+mount -t tmpfs -o "mode=755,nosuid,nodev" tmpfs /mnt
+
+if command -v diod >/dev/null; then
+	mkdir /mnt/test-v9fs-src
+	chmod 1777 /mnt/test-v9fs-src
+	mkdir /mnt/test-v9fs
+	# Listen on the 9pfs port.
+	diod -n -l 127.0.0.1:564 -e /mnt/test-v9fs-src
+	mount.diod -n 127.0.0.1:/mnt/test-v9fs-src /mnt/test-v9fs
+else
+	echo "WARNING: Could not find the diod command." >&2
+fi
+
 cd "${TEST_CWD}"
 
 # Keeps root's capabilities but switches to the current user.

@@ -29,6 +29,11 @@ cd linux
 .../check-linux.sh build kselftest kunit
 ```
 
+### Optional dependencies
+
+In order to test more filesystems, these commands should be installed:
+* [diod](https://github.com/chaos/diod) (9p filesystem)
+
 ## rust-landlock
 
 test-rust.sh can be used to test the Landlock crate against a specific kernel
