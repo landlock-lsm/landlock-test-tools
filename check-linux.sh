@@ -106,6 +106,7 @@ create_config() {
 	local config_arch_check="tools/testing/selftests/landlock/config.${ARCH}"
 	local config_landlock="tools/testing/selftests/landlock/config"
 	local config_all=(
+		"${BASE_DIR}/kernels/config-test"
 		"${config_arch}"
 	)
 
