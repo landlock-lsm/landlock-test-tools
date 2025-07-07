@@ -47,10 +47,16 @@ if [[ "${KERNEL_DIR}" =~ ^/(tmp|run)/ ]]; then
 	exit 1
 fi
 
-OUT_RET="$(mktemp "--tmpdir=${KERNEL_DIR}" .uml-run-ret.XXXXXXXXXX)"
+OUT_DIR="$(mktemp --directory --tmpdir uml-run-out.XXXXXXXXXX)"
+OUT_RET="${OUT_DIR}/ret"
 
 cleanup() {
-	rm -- "${OUT_RET}"
+	trap - QUIT INT TERM EXIT
+	set +e +u
+
+	local ret="$(< "${OUT_RET}")"
+	rm -r -- "${OUT_DIR}"
+	exit "${ret}"
 }
 
 trap cleanup QUIT INT TERM EXIT
@@ -72,5 +78,3 @@ echo "[*] Booting kernel ${KERNEL}"
 	"TEST_CWD=$(pwd)" \
 	"TEST_RET=${OUT_RET}" \
 	"TEST_EXEC=$(printf "%s" "$*" | base64 --wrap=0)"
-
-exit "$(< "${OUT_RET}")"
