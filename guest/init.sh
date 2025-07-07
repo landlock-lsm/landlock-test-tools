@@ -22,6 +22,25 @@ if [[ -z "${PATH:-}" ]]; then
 	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 fi
 
+exit_poweroff() {
+	trap - QUIT INT TERM EXIT
+	set +e
+
+	if [[ -n "${TEST_RET:-}" ]]; then
+		echo "$1" > "${TEST_RET}"
+	fi
+	exec poweroff -f
+	exit 1
+}
+
+RET=1
+
+cleanup() {
+	exit_poweroff "${RET}"
+}
+
+trap cleanup QUIT INT TERM EXIT
+
 dmesg --console-level warn
 
 echo 1 > /proc/sys/kernel/panic_on_oops
@@ -29,13 +48,6 @@ echo 1 > /proc/sys/kernel/panic_on_warn
 echo 1 > /proc/sys/vm/panic_on_oom
 
 echo -1 > /proc/sys/kernel/panic
-
-exit_poweroff() {
-	if [[ -n "${TEST_RET:-}" ]]; then
-		echo "$1" > "${TEST_RET}"
-	fi
-	exec poweroff -f
-}
 
 if [[ -z "${TEST_UID:-}" ]]; then
 	echo "ERROR: This must be launched by uml-run.sh" >&2
@@ -106,5 +118,3 @@ RET=0
 "${CMD[@]}" || RET=$?
 
 echo "[*] Returned value: ${RET}"
-
-exit_poweroff "${RET}"
