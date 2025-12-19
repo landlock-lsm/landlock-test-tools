@@ -35,6 +35,8 @@ export KBUILD_BUILD_USER="root"
 export KBUILD_BUILD_HOST="localhost"
 export KBUILD_BUILD_TIMESTAMP="$(git log --no-walk --pretty=format:%aD)"
 
+CURRENT_COMMIT="$(git --no-pager log --no-walk --max-count=1 --pretty=format:%h HEAD)"
+
 NPROC="$(nproc)"
 
 make_cmd() {
@@ -207,6 +209,53 @@ check_smatch() {
 	make_cmd CHECK="smatch -p=kernel" C=1 "${MAKE_ARGS[@]}"
 }
 
+# Records the stack usage for the current build and compare it to the parent.
+# When a parent reference is explicitly set, check_stack_landlock fails if
+# stack usage cannot be computed.
+check_stack_landlock() {
+	local parent_ref parent_set
+	local path="security/landlock/"
+	local current_usage="${O}/stackusage-${CURRENT_COMMIT}.txt"
+
+	if [[ -n "${1:-}" ]]; then
+		parent_ref="$1"
+		parent_set=true
+	else
+		parent_ref="HEAD~"
+		parent_set=false
+	fi
+
+	if [[ "${CC:-}" != "gcc" ]]; then
+		echo "[-] Stack usage needs CC=gcc" >&2
+		if ${parent_set}; then
+			exit 1
+		else
+			return
+		fi
+	fi
+
+	echo "[+] Checking stack usage: ${path}"
+	rm "${O}/${path}/"*.o 2>/dev/null || :
+	# See make_cmd:
+	./scripts/stackusage -o "${current_usage}" "-j${NPROC}" "ARCH=${ARCH}" "CC=${CC}" "O=${O}" "${path}"
+
+	local parent_commit parent_usage
+	# Pick the first parent.
+	parent_commit="$(git --no-pager log --no-walk --max-count=1 --pretty=format:%h "${parent_ref}")"
+	parent_usage="${O}/stackusage-${parent_commit}.txt"
+	if [[ -f "${parent_usage}" ]]; then
+		echo "[*] Stack delta between ${parent_commit} and ${CURRENT_COMMIT}:"
+		./scripts/stackdelta "${parent_usage}" "${current_usage}" | \
+			cut -f2- | \
+			sort -k4,4g | \
+			column -t |
+			sed 's/^/  /'
+	elif ${parent_set}; then
+		echo "[-] Failed to find parent stack usage: ${parent_usage}" >&2
+		exit 1
+	fi
+}
+
 check_format() {
 	if [[ -n "$(git --no-pager log --max-count=1 --grep '^landlock: Format with clang-format$' --pretty=format:%H v5.10..HEAD security/landlock)" ]]; then
 		echo "[+] Checking with clang-format: ${SOURCE_DIR}"
@@ -366,7 +415,7 @@ check_patch() {
 }
 
 exit_usage() {
-	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|lint|build_kselftest|kselftest|kunit|doc|patch..." >&2
+	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|lint|stack|build_kselftest|kselftest|kunit|doc|patch..." >&2
 	exit 1
 }
 
@@ -397,11 +446,20 @@ run() {
 				strip "${O}/linux"
 			fi
 			;;
+		stack)
+			# Needs a valid kernel configuration.
+			#
+			# When a parent reference is explicitly set,
+			# check_stack_landlock fails if stack usage cannot be
+			# computed.
+			check_stack_landlock ${PARENT_REF:-}
+			;;
 		lint)
 			install_headers
 			# tools/testing/selftests must go first because of patch_kselftest()
 			check_source_dir tools/testing/selftests/landlock
 			check_source_dir security/landlock
+			check_stack_landlock
 			check_source_dir samples/landlock
 			;;
 		build_kselftest)
