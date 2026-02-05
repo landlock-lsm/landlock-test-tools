@@ -77,7 +77,7 @@ unpatch_all() {
 
 patch_kernel_kconfig() {
 	if [[ "${ARCH}" != "um" ]]; then
-		return
+		return 0
 	fi
 
 	if git apply "${BASE_DIR}/kernels/0001-test-Landlock-with-UML.patch" 2>/dev/null; then
@@ -89,7 +89,7 @@ patch_kernel_kconfig() {
 
 patch_samples_kconfig() {
 	if [[ "${ARCH}" != "um" ]]; then
-		return
+		return 0
 	fi
 
 	# Requires headers to be installed.
@@ -230,7 +230,7 @@ check_stack_landlock() {
 		if ${parent_set}; then
 			exit 1
 		else
-			return
+			return 0
 		fi
 	fi
 
@@ -294,7 +294,7 @@ check_build() {
 	if [[ "${ARCH}" == "um" ]]; then
 		# Only Kselftest builds without warning.
 		if [[ "${SOURCE_DIR##tools/}" == "${SOURCE_DIR}" ]]; then
-			return
+			return 0
 		else
 			patch_kselftest
 		fi
@@ -394,7 +394,7 @@ check_doc_path() {
 	local date="$(git log --no-walk '--date=format:%B %Y' --format=%ad HEAD -- "${path}")"
 
 	if [[ -z "${date}" ]]; then
-		return
+		return 0
 	fi
 
 	echo "[+] Checking date ${date} in ${path}"
