@@ -29,6 +29,18 @@ cd linux
 .../check-linux.sh build kselftest kunit
 ```
 
+To run all checks:
+
+```shell
+.../check-linux.sh all
+```
+
+To check on a virtual machine and get test coverage
+
+```shell
+ARCH=x86_64 .../check-linux.sh build_light kselftest
+```
+
 ### Optional dependencies
 
 In order to test more filesystems, these commands should be installed:
@@ -39,6 +51,8 @@ To build and test against an x86\_64 architecture, these commands should be
 installed:
 * [virtme-ng](https://github.com/arighi/virtme-ng)
 * [clang](https://github.com/llvm/llvm-project)
+
+To run `check-linux.sh lint`, we need to install [Smatch](https://repo.or.cz/smatch.git).
 
 ## rust-landlock
 
