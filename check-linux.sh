@@ -393,7 +393,10 @@ gcov_extract() {
 	genhtml -q -o "${coverage_dir}/html" "${coverage_dir}/landlock.info"
 
 	# Prints result.
-	local gcov_version="$("${BASE_DIR}/llvm-gcov.sh" --version | sed -ne 's/^ *LLVM version \([0-9]\+\)\..*$/\1/p')"
+	#
+	# Some llvm-gcov.sh might return "  LLVM version X.Y.Z" and other
+	# "Ubuntu LLVM version X.Y.Z"
+	local gcov_version="$("${BASE_DIR}/llvm-gcov.sh" --version | sed -ne 's/^.*LLVM version \([0-9]\+\)\..*$/\1/p')"
 	lcov --extract "${coverage_dir}/landlock.info" security/landlock \
 		-o /dev/null | \
 			sed -n "s#^ \+lines\.\+: \([0-9.]\+%\) ([0-9]\+ of \([0-9]\+\) lines)\$#Test coverage for security/landlock is \1 of \2 lines according to\nLLVM ${gcov_version}.#p"
