@@ -49,7 +49,7 @@ In order to test more filesystems, these commands should be installed:
 
 To build and test against an x86\_64 architecture, these commands should be
 installed:
-* [virtme-ng](https://github.com/arighi/virtme-ng)
+* [virtme-ng](https://github.com/arighi/virtme-ng) and qemu-system-x86
 * [clang](https://github.com/llvm/llvm-project)
 
 To run `check-linux.sh lint`, we need to install [Smatch](https://repo.or.cz/smatch.git).
