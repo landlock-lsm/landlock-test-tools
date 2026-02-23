@@ -8,6 +8,7 @@
 # Examples:
 # ./uml-run.sh linux-6.1 -- bash -i
 # ./uml-run.sh .../linux -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
+# ./uml-run.sh .../linux audit=1 -- .../test.sh
 
 set -e -u -o pipefail
 
@@ -21,7 +22,13 @@ BASE_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 KERNEL="$1"
 shift
 
-if [[ "${1:-}" != "--" ]] then
+KERNEL_ARGS=()
+while [[ $# -gt 0 && "$1" != "--" ]]; do
+	KERNEL_ARGS+=("$1")
+	shift
+done
+
+if [[ $# -eq 0 ]]; then
 	echo "ERROR: Missing '--' argument" >&2
 	exit 1
 fi
@@ -71,6 +78,7 @@ echo "[*] Booting kernel ${KERNEL}"
 	"console=tty0" \
 	"mem=256M" \
 	"quiet" \
+	"${KERNEL_ARGS[@]}" \
 	"SYSTEMD_UNIT_PATH=${BASE_DIR}/guest/systemd" \
 	"PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
 	"TERM=${TERM:-linux}" \

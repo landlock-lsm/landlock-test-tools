@@ -52,7 +52,11 @@ installed:
 * [virtme-ng](https://github.com/arighi/virtme-ng) and qemu-system-x86
 * [clang](https://github.com/llvm/llvm-project)
 
-To run `check-linux.sh lint`, we need to install [Smatch](https://repo.or.cz/smatch.git).
+To run `check-linux.sh lint`, we need to install:
+* [Smatch](https://repo.or.cz/smatch.git)
+* [sparse](https://sparse.docs.kernel.org)
+* clang-format (from [LLVM](https://github.com/llvm/llvm-project))
+* g++ or clang++ (for UAPI C++ compatibility check)
 
 ## rust-landlock
 

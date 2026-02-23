@@ -408,12 +408,14 @@ gcov_extract() {
 run_kselftest_x86() {
 	local timeout=180
 	local coverage_dir=""
+	local coverage_args=()
 	local inc="$(date +%s)"
 
 	if grep -q "^CONFIG_GCOV_KERNEL=y$" "${O}/.config"; then
 		if grep -q "^CONFIG_CC_IS_CLANG=y$" "${O}/.config"; then
 			coverage_dir="${O}/coverage-${inc}-${CURRENT_COMMIT}"
 			mkdir -- "${coverage_dir}"
+			coverage_args=(-c "${coverage_dir}")
 			echo "[+] Testing and generating coverage in ${coverage_dir}"
 		else
 			# Some GCC versions don't work.
@@ -425,11 +427,11 @@ run_kselftest_x86() {
 
 	timeout --signal KILL "${timeout}" </dev/null 2>&1 "${BASE_DIR}/x86-run.sh" \
 		"${O}/arch/x86/boot/bzImage" \
-		"${coverage_dir}" \
+		"${coverage_args[@]}" \
 		-- \
 		"${BASE_DIR}/guest/kselftest.sh" \
 		"${O}/kselftest/kselftest_install/landlock" \
-		${coverage_dir} \
+		${coverage_dir:+"${coverage_dir}"} \
 		| timeout "$((timeout + 1))" cat
 
 	gcov_extract "${coverage_dir}"

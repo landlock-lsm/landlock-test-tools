@@ -8,12 +8,13 @@
 # This cannot be used to run an interactive shell yet (see SSH notes).
 #
 # Examples:
-# ./x86-run.sh .../arch/x86/boot/bzImage .../coverage_dir -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
+# ./x86-run.sh .../arch/x86/boot/bzImage -c .../coverage_dir -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
+# ./x86-run.sh .../arch/x86/boot/bzImage audit=1 -- .../test.sh
 
 set -e -u -o pipefail
 
 if [[ $# -lt 3 ]]; then
-	echo "usage: ${BASH_SOURCE[0]} <linux-x86-kernel> [coverage_dir] -- <exec-path> [exec-arg]..." >&2
+	echo "usage: ${BASH_SOURCE[0]} <linux-x86-kernel> [-c coverage_dir] [kernel-args...] -- <exec-path> [exec-arg]..." >&2
 	exit 1
 fi
 
@@ -28,16 +29,23 @@ fi
 shift
 
 COVERAGE_DIR=""
-if [[ "${1:-}" != "--" ]] then
-	COVERAGE_DIR="$1"
-	if [[ ! -d "${COVERAGE_DIR}" ]] then
+if [[ "${1:-}" == "-c" ]]; then
+	shift
+	COVERAGE_DIR="${1:-}"
+	if [[ -z "${COVERAGE_DIR}" || ! -d "${COVERAGE_DIR}" ]]; then
 		echo "ERROR: Not a directory: ${COVERAGE_DIR}" >&2
 		exit 1
 	fi
 	shift
 fi
 
-if [[ "${1:-}" != "--" ]] then
+KERNEL_ARGS=()
+while [[ $# -gt 0 && "$1" != "--" ]]; do
+	KERNEL_ARGS+=("$1")
+	shift
+done
+
+if [[ $# -eq 0 ]]; then
 	echo "ERROR: Missing '--' argument" >&2
 	exit 1
 fi
@@ -84,6 +92,10 @@ ARGS=()
 if [[ -n "${COVERAGE_DIR}" ]]; then
 	ARGS+=(--rwdir "${COVERAGE_DIR}")
 fi
+
+for arg in "${KERNEL_ARGS[@]}"; do
+	ARGS+=(--append "${arg}")
+done
 
 vng --run "${KERNEL}" \
 	--verbose \
