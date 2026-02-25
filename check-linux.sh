@@ -486,7 +486,13 @@ check_doc_path() {
 check_doc() {
 	check_doc_path Documentation/userspace-api/landlock.rst
 	check_doc_path Documentation/security/landlock.rst
-	./scripts/kernel-doc -Werror -none include/uapi/linux/landlock.h security/landlock/*.h
+	./scripts/kernel-doc \
+		-Werror \
+		-Wall \
+		-none \
+		include/uapi/linux/landlock.h \
+		security/landlock/*.h \
+		security/landlock/*.c
 }
 
 check_patch() {
