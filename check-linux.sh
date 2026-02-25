@@ -197,6 +197,23 @@ make_clean() {
 	fi
 }
 
+check_uapi_cxx() {
+	echo "[+] Checking UAPI C++ compatibility"
+	local cxx=""
+
+	if command -v g++ &>/dev/null; then
+		cxx="g++"
+	elif command -v clang++ &>/dev/null; then
+		cxx="clang++"
+	else
+		echo "ERROR: Unable to find g++ or clang++" >&2
+		exit 1
+	fi
+
+	echo '#include <linux/landlock.h>' | \
+		"${cxx}" -x c++ -std=c++23 -fsyntax-only -isystem "${O}/usr/include" -
+}
+
 check_sparse() {
 	echo "[+] Checking with sparse: ${SOURCE_DIR}"
 	# Requires sparse with commit 0e1aae55e49c ("fix "unreplaced" warnings caused by using typeof() on inline functions")
@@ -543,6 +560,7 @@ run() {
 			;;
 		lint)
 			install_headers
+			check_uapi_cxx
 			# tools/testing/selftests must go first because of patch_kselftest()
 			check_source_dir tools/testing/selftests/landlock
 			check_source_dir security/landlock
