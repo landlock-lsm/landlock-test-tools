@@ -503,8 +503,9 @@ check_doc_path() {
 }
 
 check_doc() {
-	check_doc_path Documentation/userspace-api/landlock.rst
+	check_doc_path Documentation/admin-guide/LSM/landlock.rst
 	check_doc_path Documentation/security/landlock.rst
+	check_doc_path Documentation/userspace-api/landlock.rst
 	./scripts/kernel-doc \
 		-Werror \
 		-Wall \
