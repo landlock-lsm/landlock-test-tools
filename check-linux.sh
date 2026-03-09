@@ -420,6 +420,9 @@ gcov_extract() {
 
 	rm -- "${coverage_dir}/gcov.tar.gz"
 	rm -r  -- "${gcov_dir}"
+
+	# Symlink to the latest coverage for easy access.
+	ln -srfn "${coverage_dir}" "${coverage_dir%/*}/coverage-latest"
 }
 
 run_kselftest_x86() {
