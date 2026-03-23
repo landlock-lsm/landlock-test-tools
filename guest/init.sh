@@ -77,6 +77,8 @@ if [[ -z "${TMPDIR:-}" ]]; then
 	export TMPDIR="/tmp"
 fi
 
+mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null || true
+
 if [[ ! -d /mnt ]]; then
 	mkdir /mnt
 fi
