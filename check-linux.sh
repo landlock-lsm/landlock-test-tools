@@ -48,6 +48,10 @@ CURRENT_COMMIT="$(git --no-pager log --no-walk --max-count=1 --pretty=format:%h 
 
 NPROC="$(nproc)"
 
+# Options toggled by build_variants to test all combinations.
+# Each entry is mapped to CONFIG_<NAME>=y.
+VARIANT_CONFIGS=(AUDIT FTRACE)
+
 make_cmd() {
 	make "-j${NPROC}" "ARCH=${ARCH}" "CC=${CC}" "O=${O}" "$@"
 }
@@ -109,32 +113,40 @@ patch_samples_kconfig() {
 	fi
 }
 
-# First argument may be:
-# - light: Only build the kernel, not the sample.
-# - check: Build the kernel with runtime checks.
-create_config() {
+# Populates BASE_CONFIGS with the base config fragments
+# (config-test + config-mini-${ARCH} + selftest config).
+get_base_configs() {
 	local config_arch="${BASE_DIR}/kernels/config-mini-${ARCH}"
-	local config_arch_check="tools/testing/selftests/landlock/config.${ARCH}"
 	local config_landlock="tools/testing/selftests/landlock/config"
-	local config_all=(
-		"${BASE_DIR}/kernels/config-test"
-		"${config_arch}"
-	)
-
-	if [[ "${1:-}" = "check" ]]; then
-		config_all+=("${BASE_DIR}/kernels/config-check")
-		if [[ -f "${config_arch_check}" ]]; then
-			config_all+=("${config_arch_check}")
-		fi
-	fi
 
 	if [[ ! -f "${config_arch}" ]]; then
 		echo "ERROR: Architecture not supported" >&2
 		exit 1
 	fi
 
+	BASE_CONFIGS=(
+		"${BASE_DIR}/kernels/config-test"
+		"${config_arch}"
+	)
+
 	if [[ -f "${config_landlock}" ]]; then
-		config_all+=("${config_landlock}")
+		BASE_CONFIGS+=("${config_landlock}")
+	fi
+}
+
+# First argument may be:
+# - light: Only build the kernel, not the sample.
+# - check: Build the kernel with runtime checks.
+create_config() {
+	get_base_configs
+	local config_all=("${BASE_CONFIGS[@]}")
+
+	if [[ "${1:-}" = "check" ]]; then
+		local config_arch_check="tools/testing/selftests/landlock/config.${ARCH}"
+		config_all+=("${BASE_DIR}/kernels/config-check")
+		if [[ -f "${config_arch_check}" ]]; then
+			config_all+=("${config_arch_check}")
+		fi
 	fi
 
 	patch_kernel_kconfig
@@ -522,8 +534,73 @@ check_patch() {
 	./scripts/checkpatch.pl --strict --codespell --git HEAD
 }
 
+build_variants() {
+	get_base_configs
+
+	local -a options=("${VARIANT_CONFIGS[@]}")
+
+	local merged
+	merged=$(sort -u -- "${BASE_CONFIGS[@]}")
+
+	local n=${#options[@]}
+	local total=$((1 << n))
+
+	patch_kernel_kconfig
+
+	local saved_o="${O}"
+	local mask failed=0
+	for ((mask = 0; mask < total; mask++)); do
+		local label="" suffix="" filter=""
+		local bit
+		for ((bit = 0; bit < n; bit++)); do
+			local name="${options[$bit]}"
+			local opt="CONFIG_${name}=y"
+
+			if (( mask & (1 << bit) )); then
+				label+="${name}=n "
+				suffix+="-no${name,,}"
+				filter+="/^${opt}$/d;"
+			else
+				label+="${name}=y "
+			fi
+		done
+
+		echo "[*] Variant $((mask + 1))/${total}: ${label}"
+		if [[ -n "${suffix}" ]]; then
+			O="${saved_o}${suffix}"
+		else
+			O="${saved_o}"
+		fi
+
+		local filtered
+		if [[ -n "${filter}" ]]; then
+			filtered=$(echo "${merged}" | sed "${filter}")
+		else
+			filtered="${merged}"
+		fi
+
+		make_cmd \
+			KCONFIG_ALLCONFIG=<(echo "${filtered}") \
+			allnoconfig
+
+		if make_cmd; then
+			echo "[+] OK: ${label}"
+		else
+			echo "[-] FAILED: ${label}"
+			failed=$((failed + 1))
+		fi
+	done
+	O="${saved_o}"
+
+	if [[ ${failed} -gt 0 ]]; then
+		echo "[-] ${failed}/${total} variants failed"
+		return 1
+	fi
+	echo "[+] All ${total} variants passed"
+}
+
 exit_usage() {
-	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|lint|stack|build_kselftest|kselftest|kunit|doc|patch..." >&2
+	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|build_variants|lint|stack|build_kselftest|kselftest|kunit|doc|patch..." >&2
 	exit 1
 }
 
@@ -553,6 +630,9 @@ run() {
 			if [[ "${ARCH}" = "um" ]]; then
 				strip "${O}/linux"
 			fi
+			;;
+		build_variants)
+			build_variants
 			;;
 		stack)
 			# Needs a valid kernel configuration.
