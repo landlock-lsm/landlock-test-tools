@@ -18,9 +18,7 @@
 
 set -e -u -o pipefail
 
-if [[ -n "${TEST_PATH:-}" ]]; then
-	export PATH="${TEST_PATH}"
-fi
+
 
 if [[ -z "${PATH:-}" ]]; then
 	export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
@@ -63,10 +61,6 @@ if [[ -z "${TEST_EXEC:-}" ]]; then
 	exit_poweroff 1
 fi
 
-if [[ "${HOME:-/}" == / ]]; then
-	export HOME="$(getent passwd "${TEST_UID}" | cut -d: -f6)"
-fi
-
 if [[ -h /tmp ]]; then
 	echo "ERROR: /tmp must not be a symlink" >&2
 	exit_poweroff 1
@@ -104,15 +98,12 @@ else
 	echo "WARNING: Could not find the bindfs command." >&2
 fi
 
-cd "${TEST_CWD}"
+DECODED_EXEC="$(printf "%s" "${TEST_EXEC}" | base64 -d)"
+SHELL_SH="$(dirname -- "${BASH_SOURCE[0]}")/shell.sh"
 
-# Keeps root's capabilities but switches to the current user.
-CAPS="$(setpriv --dump | sed -n -e 's/^Capability bounding set: \(.*\)$/+\1/p' | sed -e 's/,/,+/g')"
-CMD=(setpriv --inh-caps "${CAPS}" --ambient-caps "${CAPS}" --reuid "${TEST_UID}" -- $(printf "%s" "${TEST_EXEC}" | base64 -d))
-
-echo "[*] Launching ${CMD[@]}"
+echo "[*] Launching ${SHELL_SH} ${DECODED_EXEC}"
 
 RET=0
-"${CMD[@]}" || RET=$?
+"${SHELL_SH}" "${DECODED_EXEC}" || RET=$?
 
 echo "[*] Returned value: ${RET}"
