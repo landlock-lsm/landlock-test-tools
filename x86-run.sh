@@ -3,18 +3,20 @@
 #
 # Copyright © 2015-2025 Mickaël Salaün <mic@digikod.net>
 #
-# Launch a minimal VM to run all Landlock tests.
+# Launch a minimal VM to run Landlock tests or an interactive console.
 #
-# This cannot be used to run an interactive shell yet (see SSH notes).
-#
-# Examples:
+# With a command (exec mode):
 # ./x86-run.sh .../arch/x86/boot/bzImage -c .../coverage_dir -- .../tools/testing/selftests/kselftest_install/run_kselftest.sh
 # ./x86-run.sh .../arch/x86/boot/bzImage audit=1 -- .../test.sh
+#
+# Without a command (interactive console):
+# ./x86-run.sh .../arch/x86/boot/bzImage
+# Then connect from another terminal: vng --console-client
 
 set -e -u -o pipefail
 
-if [[ $# -lt 3 ]]; then
-	echo "usage: ${BASH_SOURCE[0]} <linux-x86-kernel> [-c coverage_dir] [kernel-args...] -- <exec-path> [exec-arg]..." >&2
+if [[ $# -lt 1 ]]; then
+	echo "usage: ${BASH_SOURCE[0]} <linux-x86-kernel> [-c coverage_dir] [kernel-args...] [-- <exec-path> [exec-arg]...]" >&2
 	exit 1
 fi
 
@@ -45,11 +47,13 @@ while [[ $# -gt 0 && "$1" != "--" ]]; do
 	shift
 done
 
+INTERACTIVE=false
 if [[ $# -eq 0 ]]; then
-	echo "ERROR: Missing '--' argument" >&2
-	exit 1
+	INTERACTIVE=true
+	set -- "echo '[+] Interactive console. Connect with: vng --console-client' && sleep infinity"
+else
+	shift
 fi
-shift
 
 KERNEL_DIR="$(dirname -- "${KERNEL}")/"
 if [[ "${KERNEL_DIR}" =~ ^/(tmp|run)/ ]]; then
@@ -81,13 +85,6 @@ trap cleanup QUIT INT TERM EXIT
 
 echo "[*] Booting kernel ${KERNEL}"
 
-# # virtme-ng requires a ~/.ssh/id_*.pub file
-# if [[ ! -e ~/.ssh/id_virtme-ng-landlock-test ]]; then
-# 	ssh-keygen -f ~/.ssh/id_virtme-ng-landlock-test -N ''
-# fi
-# vng --ssh
-# ssh -F ~/.cache/virtme-ng/.ssh/virtme-ng-ssh.conf -o IdentityFile=~/.ssh/id_virtme-ng-landlock-test -l root ssh://virtme-ng:2222
-
 ARGS=()
 if [[ -n "${COVERAGE_DIR}" ]]; then
 	ARGS+=(--rwdir "${COVERAGE_DIR}")
@@ -96,6 +93,14 @@ fi
 for arg in "${KERNEL_ARGS[@]}"; do
 	ARGS+=(--append "${arg}")
 done
+
+# Interactive console: keep the VM alive, console client gets a shell
+# with the same capabilities, user, and working directory as exec mode.
+if "${INTERACTIVE}"; then
+	ARGS+=(--console --remote-cmd "${BASE_DIR}/guest/shell.sh")
+	ARGS+=(--append "TEST_COLS=$(tput cols 2>/dev/null || echo 80)")
+	ARGS+=(--append "TEST_LINES=$(tput lines 2>/dev/null || echo 24)")
+fi
 
 vng --run "${KERNEL}" \
 	--verbose \
