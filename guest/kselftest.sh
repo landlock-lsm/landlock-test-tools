@@ -10,9 +10,11 @@ pushd "$1"
 
 COVERAGE_DIR="${2:-}"
 
+FAILED=0
+
 while read f; do
 	echo "[+] Running $f:"
-	"./$f"
+	"./$f" || FAILED=1
 
 	if dmesg --notime --kernel | grep '^\(BUG\|WARNING\):'; then
 		exit 1
@@ -25,4 +27,8 @@ if [[ -n "${COVERAGE_DIR}" ]]; then
 	echo "[+] Gathering coverage"
 	rm "${COVERAGE_DIR}/gcov.tar.gz" 2>/dev/null || :
 	gcov_gather_on_test.sh "${COVERAGE_DIR}/gcov.tar.gz"
+fi
+
+if [[ "${FAILED}" -ne 0 ]]; then
+	exit 1
 fi
