@@ -140,12 +140,17 @@ get_base_configs() {
 create_config() {
 	get_base_configs
 	local config_all=("${BASE_CONFIGS[@]}")
+	local config_selftests_arch="tools/testing/selftests/landlock/config.${ARCH}"
+
+	if [[ -f "${config_selftests_arch}" ]]; then
+		config_all+=("${config_selftests_arch}")
+	fi
 
 	if [[ "${1:-}" = "check" ]]; then
-		local config_arch_check="tools/testing/selftests/landlock/config.${ARCH}"
+		local config_check_arch="${BASE_DIR}/kernels/config-check-${ARCH}"
 		config_all+=("${BASE_DIR}/kernels/config-check")
-		if [[ -f "${config_arch_check}" ]]; then
-			config_all+=("${config_arch_check}")
+		if [[ -f "${config_check_arch}" ]]; then
+			config_all+=("${config_check_arch}")
 		fi
 	fi
 
@@ -438,7 +443,7 @@ gcov_extract() {
 }
 
 run_kselftest_x86() {
-	local timeout=180
+	local timeout=300
 	local coverage_dir=""
 	local coverage_args=()
 	local inc="$(date +%s)"
@@ -536,11 +541,17 @@ check_patch() {
 
 build_variants() {
 	get_base_configs
+	local -a config_all=("${BASE_CONFIGS[@]}")
+	local config_selftests_arch="tools/testing/selftests/landlock/config.${ARCH}"
+
+	if [[ -f "${config_selftests_arch}" ]]; then
+		config_all+=("${config_selftests_arch}")
+	fi
 
 	local -a options=("${VARIANT_CONFIGS[@]}")
 
 	local merged
-	merged=$(sort -u -- "${BASE_CONFIGS[@]}")
+	merged=$(sort -u -- "${config_all[@]}")
 
 	local n=${#options[@]}
 	local total=$((1 << n))
