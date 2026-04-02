@@ -70,7 +70,13 @@ CURRENT_COMMIT="$(git --no-pager log --no-walk --max-count=1 --pretty=format:%h 
 NPROC="$(nproc)"
 
 # Options toggled by build_variants to test all combinations.
-# Each entry is mapped to CONFIG_<NAME>=y.
+# Each entry is mapped to CONFIG_<NAME>=y and should be present in
+# tools/testing/selftests/landlock/config.  When an option is not in
+# the selftest config, variants that enable it are skipped (they
+# would produce identical builds since the option was never set).
+# FTRACE controls tracepoint availability: CONFIG_FTRACE gates
+# CONFIG_FTRACE_SYSCALLS which selects TRACEPOINTS via
+# GENERIC_TRACER -> TRACING.
 VARIANT_CONFIGS=(AUDIT FTRACE)
 
 make_cmd() {
@@ -573,9 +579,10 @@ build_variants() {
 	local -a options=("${VARIANT_CONFIGS[@]}")
 	local n=${#options[@]}
 	local total=$((1 << n))
+	local selftest_config="tools/testing/selftests/landlock/config"
 
 	local saved_o="${O}"
-	local mask failed=0
+	local mask failed=0 skipped=0 built=0
 	for ((mask = 0; mask < total; mask++)); do
 		local label="" suffix="" filter=""
 		local bit
@@ -595,7 +602,78 @@ build_variants() {
 		echo "[*] Variant $((mask + 1))/${total}: ${label}"
 		O="${saved_o}${suffix}"
 
+		# Skip variants that enable an option not in the selftest
+		# config: the option was never requested, so "enabled" and
+		# "disabled" variants would produce identical builds.
+		local skip_variant=false
+		for ((bit = 0; bit < n; bit++)); do
+			local name="${options[$bit]}"
+			local opt="CONFIG_${name}"
+			local disabled=$(( mask & (1 << bit) ))
+
+			if ! grep -q "^${opt}=y" "${selftest_config}" 2>/dev/null; then
+				if (( ! disabled )); then
+					echo "[!] WARNING: ${opt} not in selftest config, skipping variant"
+					skip_variant=true
+					break
+				fi
+			fi
+		done
+
+		if "${skip_variant}"; then
+			skipped=$((skipped + 1))
+			continue
+		fi
+
 		create_config "${BUILD_FLAVOR}" "${filter}"
+
+		# Verify variant config options are correctly set/unset.
+		for ((bit = 0; bit < n; bit++)); do
+			local name="${options[$bit]}"
+			local opt="CONFIG_${name}"
+			local disabled=$(( mask & (1 << bit) ))
+
+			if ! grep -q "^${opt}=y" "${selftest_config}" 2>/dev/null; then
+				continue
+			fi
+
+			if (( disabled )); then
+				if grep -q "^${opt}=y" "${O}/.config"; then
+					echo "[-] ERROR: ${opt} should be disabled but is enabled in ${O}/.config"
+					exit 1
+				fi
+			else
+				if ! grep -q "^${opt}=y" "${O}/.config"; then
+					echo "[-] ERROR: ${opt} should be enabled but is not in ${O}/.config"
+					exit 1
+				fi
+			fi
+		done
+
+		# CONFIG_FTRACE alone only enables the tracer menu without
+		# selecting CONFIG_TRACEPOINTS.  CONFIG_FTRACE_SYSCALLS is
+		# the lightest tracer that selects GENERIC_TRACER -> TRACING
+		# -> TRACEPOINTS, which is needed for tracefs and Landlock
+		# trace events.  Verify the chain when the selftest config
+		# includes FTRACE_SYSCALLS.
+		if grep -q '^CONFIG_FTRACE_SYSCALLS=y' "${selftest_config}" 2>/dev/null; then
+			if grep -q '^CONFIG_FTRACE=y' "${O}/.config"; then
+				for dep in FTRACE_SYSCALLS TRACEPOINTS; do
+					if ! grep -q "^CONFIG_${dep}=y" "${O}/.config"; then
+						echo "[-] ERROR: CONFIG_${dep} should be enabled (FTRACE=y) in ${O}/.config"
+						exit 1
+					fi
+				done
+			else
+				for dep in FTRACE_SYSCALLS TRACEPOINTS; do
+					if grep -q "^CONFIG_${dep}=y" "${O}/.config"; then
+						echo "[-] ERROR: CONFIG_${dep} should be disabled (FTRACE=n) in ${O}/.config"
+						exit 1
+					fi
+				done
+			fi
+		fi
+
 		install_headers
 
 		if build_main; then
@@ -604,14 +682,15 @@ build_variants() {
 			echo "[-] FAILED: ${label}"
 			failed=$((failed + 1))
 		fi
+		built=$((built + 1))
 	done
 	O="${saved_o}"
 
 	if [[ ${failed} -gt 0 ]]; then
-		echo "[-] ${failed}/${total} variants failed"
+		echo "[-] ${failed}/${total} variants failed (${skipped} skipped)"
 		return 1
 	fi
-	echo "[+] All ${total} variants passed"
+	echo "[+] ${built}/${total} variants passed (${skipped} skipped)"
 }
 
 exit_usage() {
