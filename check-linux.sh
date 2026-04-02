@@ -8,7 +8,7 @@
 # Dependencies:
 # - virtme-ng (to run kselftest on x86_64)
 #
-# usage: [ARCH=um] [CC=gcc] check-linux.sh <command>...
+# usage: [ARCH=um] [CC=gcc] [BUILD_FLAVOR=check|light] check-linux.sh <command>...
 
 set -e -u -o pipefail
 
@@ -34,10 +34,31 @@ if [[ -z "${CC:-}" ]]; then
 	fi
 fi
 
+# Build flavor controls config extras and build directory suffix.
+# - check (default): full debug, config-check extras (KASAN/KCSAN), samples.
+# - light: no debug extras, no samples, strip UML binary.
+# build_variants defaults to light when BUILD_FLAVOR is not explicitly set.
+if [[ -z "${BUILD_FLAVOR:-}" ]]; then
+	if [[ $# -eq 1 && "${1:-}" = "build_variants" ]]; then
+		BUILD_FLAVOR="light"
+	else
+		BUILD_FLAVOR="check"
+	fi
+fi
+
+if [[ "${BUILD_FLAVOR}" != "check" && "${BUILD_FLAVOR}" != "light" ]]; then
+	echo "ERROR: BUILD_FLAVOR must be 'check' or 'light', got '${BUILD_FLAVOR}'" >&2
+	exit 1
+fi
+
 if [[ -z "${O:-}" ]]; then
-	O="./.out-landlock_local-${ARCH}-${CC}"
+	O_BASE="./.out-landlock-${ARCH}-${CC}"
+	O="${O_BASE}-${BUILD_FLAVOR}"
+else
+	O_BASE="${O}"
 fi
 export O="$(readlink -f "${O}")"
+export O_BASE="$(readlink -f "${O_BASE}")"
 
 # Required for a deterministic Linux kernel.
 export KBUILD_BUILD_USER="root"
@@ -134,10 +155,13 @@ get_base_configs() {
 	fi
 }
 
-# First argument may be:
-# - light: Only build the kernel, not the sample.
-# - check: Build the kernel with runtime checks.
+# First argument: flavor (check or light).
+# Optional second argument: sed filter applied to the merged config
+# before allnoconfig (used by build_variants to disable CONFIG options).
 create_config() {
+	local flavor="${1:-check}"
+	local filter="${2:-}"
+
 	get_base_configs
 	local config_all=("${BASE_CONFIGS[@]}")
 	local config_selftests_arch="tools/testing/selftests/landlock/config.${ARCH}"
@@ -146,7 +170,7 @@ create_config() {
 		config_all+=("${config_selftests_arch}")
 	fi
 
-	if [[ "${1:-}" = "check" ]]; then
+	if [[ "${flavor}" = "check" ]]; then
 		local config_check_arch="${BASE_DIR}/kernels/config-check-${ARCH}"
 		config_all+=("${BASE_DIR}/kernels/config-check")
 		if [[ -f "${config_check_arch}" ]]; then
@@ -154,15 +178,19 @@ create_config() {
 		fi
 	fi
 
-	patch_kernel_kconfig
+	local merged
+	merged=$(sort -u -- "${config_all[@]}")
 
-	if [[ "${1:-}" != "light" ]]; then
-		patch_samples_kconfig
+	if [[ -n "${filter}" ]]; then
+		merged=$(echo "${merged}" | sed "${filter}")
 	fi
+
+	patch_kernel_kconfig
+	patch_samples_kconfig
 
 	echo "[+] Creating minimal configuration"
 	make_cmd \
-		KCONFIG_ALLCONFIG=<(sort -u -- "${config_all[@]}") \
+		KCONFIG_ALLCONFIG=<(echo "${merged}") \
 		allnoconfig
 }
 
@@ -177,12 +205,15 @@ install_headers() {
 	fi
 }
 
-# First argument may be:
-# - light: Only build the kernel, not the sample.
 build_main() {
-	make_cmd
+	make_cmd || return $?
 
-	if [[ "${1:-}" != "light" ]] && [[ ! -f "${O}/samples/landlock/sandboxer" ]]; then
+	# The sandboxer sample only exists once Landlock is present (v5.13+).
+	# Older kernels, built to exercise the unsupported-ABI case, ship no
+	# samples/landlock, so require the built sample only when its source
+	# is present.
+	if [[ -e samples/landlock/sandboxer.c ]] &&
+	   [[ ! -f "${O}/samples/landlock/sandboxer" ]]; then
 		echo "ERROR: Failed to build the sample"
 		exit 1
 	fi
@@ -493,12 +524,11 @@ run_kunit() {
 	if [[ -f security/landlock/.kunitconfig ]]; then
 		if [[ "$O" != "." ]]; then
 			echo "[+] Running KUnit tests"
-			# TODO: Reuse the common build directory?
 			./tools/testing/kunit/kunit.py \
 				run \
 				--kunitconfig security/landlock \
 				--arch "${ARCH}" \
-				--build_dir "${O}-kunit"
+				--build_dir "${O_BASE}-kunit"
 		else
 			echo "WARNING: Cannot run KUnit tests" >&2
 		fi
@@ -540,23 +570,9 @@ check_patch() {
 }
 
 build_variants() {
-	get_base_configs
-	local -a config_all=("${BASE_CONFIGS[@]}")
-	local config_selftests_arch="tools/testing/selftests/landlock/config.${ARCH}"
-
-	if [[ -f "${config_selftests_arch}" ]]; then
-		config_all+=("${config_selftests_arch}")
-	fi
-
 	local -a options=("${VARIANT_CONFIGS[@]}")
-
-	local merged
-	merged=$(sort -u -- "${config_all[@]}")
-
 	local n=${#options[@]}
 	local total=$((1 << n))
-
-	patch_kernel_kconfig
 
 	local saved_o="${O}"
 	local mask failed=0
@@ -577,24 +593,12 @@ build_variants() {
 		done
 
 		echo "[*] Variant $((mask + 1))/${total}: ${label}"
-		if [[ -n "${suffix}" ]]; then
-			O="${saved_o}${suffix}"
-		else
-			O="${saved_o}"
-		fi
+		O="${saved_o}${suffix}"
 
-		local filtered
-		if [[ -n "${filter}" ]]; then
-			filtered=$(echo "${merged}" | sed "${filter}")
-		else
-			filtered="${merged}"
-		fi
+		create_config "${BUILD_FLAVOR}" "${filter}"
+		install_headers
 
-		make_cmd \
-			KCONFIG_ALLCONFIG=<(echo "${filtered}") \
-			allnoconfig
-
-		if make_cmd; then
+		if build_main; then
 			echo "[+] OK: ${label}"
 		else
 			echo "[-] FAILED: ${label}"
@@ -611,7 +615,7 @@ build_variants() {
 }
 
 exit_usage() {
-	echo "usage: $(basename -- "${BASH_SOURCE[0]}") all|build|build_light|build_variants|lint|stack|build_kselftest|kselftest|kunit|doc|patch..." >&2
+	echo "usage: [BUILD_FLAVOR=check|light] $(basename -- "${BASH_SOURCE[0]}") all|build|build_variants|lint|stack|build_kselftest|kselftest|kunit|doc|patch..." >&2
 	exit 1
 }
 
@@ -626,21 +630,20 @@ run() {
 			run patch
 			;;
 		build)
-			create_config check
-			install_headers
-			build_main
-			;;
-		build_light)
 			# Required for a deterministic Linux kernel.
 			if [[ -e "${O}/.version" ]]; then
 				rm "${O}/.version"
 			fi
-			create_config light
+			create_config "${BUILD_FLAVOR}"
 			install_headers
-			build_main light
-			if [[ "${ARCH}" = "um" ]]; then
+			build_main
+			if [[ "${BUILD_FLAVOR}" = "light" && "${ARCH}" = "um" ]]; then
 				strip "${O}/linux"
 			fi
+			;;
+		build_light)
+			echo "ERROR: build_light is removed. Use BUILD_FLAVOR=light check-linux.sh build" >&2
+			exit 1
 			;;
 		build_variants)
 			build_variants
@@ -690,9 +693,24 @@ if [[ $# -lt 1 ]]; then
 	exit_usage
 fi
 
+# build_variants must be the only subcommand because its BUILD_FLAVOR
+# default (light) would be inconsistent with other subcommands.
+for arg in "$@"; do
+	if [[ "${arg}" = "build_variants" && $# -gt 1 ]]; then
+		echo "ERROR: build_variants cannot be combined with other subcommands" >&2
+		exit 1
+	fi
+done
+
 echo "[*] Architecture: ${ARCH}"
 echo "[*] Compiler: ${CC}"
+echo "[*] Build flavor: ${BUILD_FLAVOR}"
 echo "[*] Build directory: ${O}"
+
+if ls -d .out-landlock_local-* &>/dev/null; then
+	echo "[!] WARNING: Old build directories detected (.out-landlock_local-*)." >&2
+	echo "[!] They are no longer used and can be removed." >&2
+fi
 
 if ! command -v git &>/dev/null; then
 	echo "ERROR: Unable to find the \"git\" command" >&2
