@@ -499,6 +499,10 @@ run_kselftest_x86() {
 		echo "[+] Testing (without coverage)"
 	fi
 
+	# Remove stale symlink so coverage-latest only exists when the
+	# current run succeeds.
+	rm -f -- "${O}/coverage-latest"
+
 	timeout --signal KILL "${timeout}" </dev/null 2>&1 "${BASE_DIR}/x86-run.sh" \
 		"${O}/arch/x86/boot/bzImage" \
 		"${coverage_args[@]}" \
