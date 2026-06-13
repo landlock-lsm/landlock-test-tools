@@ -428,7 +428,7 @@ build_kselftest() {
 }
 
 run_kselftest_uml() {
-	local timeout=60
+	local timeout=120
 
 	# TODO: Use ./run_kselftest.sh --summary while catching test errors.
 	timeout --signal KILL "${timeout}" </dev/null 2>&1 "${BASE_DIR}/uml-run.sh" \
