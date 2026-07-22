@@ -102,13 +102,22 @@ if "${INTERACTIVE}"; then
 	ARGS+=(--append "TEST_LINES=$(tput lines 2>/dev/null || echo 24)")
 fi
 
+# Pass only the guest tools directory plus standard system directories as
+# the guest PATH, not the full host PATH.  The kernel command line is bounded
+# by CONFIG_COMMAND_LINE_SIZE (2048 on x86) and vng appends "init=" last, so a
+# long PATH truncates "init=" and the guest panics before booting.  The guest
+# runs on the host root over 9p, so the standard directories resolve to the
+# host binaries (diod, bindfs, dmesg, setpriv, ...), and ${BASE_DIR}/guest
+# provides the helper scripts (e.g. gcov_gather_on_test.sh).
+GUEST_PATH="${BASE_DIR}/guest:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 vng --run "${KERNEL}" \
 	--verbose \
 	--user root \
 	--rwdir "${OUT_DIR}" \
 	"${ARGS[@]}" \
 	--append "loglevel=4" \
-	--append "TEST_PATH=${BASE_DIR}/guest:${PATH:-/usr/bin}" \
+	--append "TEST_PATH=${GUEST_PATH}" \
 	--append "TERM=${TERM:-linux}" \
 	--append "TEST_UID=$(id -u)" \
 	--append "TEST_CWD=$(pwd)" \
