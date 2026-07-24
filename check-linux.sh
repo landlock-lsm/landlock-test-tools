@@ -92,6 +92,9 @@ unpatch_item() {
 		samples_kconfig)
 			git apply --reverse "${BASE_DIR}/kernels/0002-build-sandboxer-with-UML.patch" || :
 			;;
+		uml_fp_xstate)
+			git apply --reverse "${BASE_DIR}/kernels/0003-um-x86-adaptive-xstate-fp.patch" || :
+			;;
 		kselftest)
 			sed -e '0,/^all:$/s//\0 khdr/' -i tools/testing/selftests/Makefile || :
 			;;
@@ -138,6 +141,38 @@ patch_samples_kconfig() {
 		trap unpatch_all QUIT INT TERM EXIT
 		echo "[+] Patched samples' Kconfig for UML support"
 	fi
+}
+
+patch_uml_fp_xstate() {
+	if [[ "${ARCH}" != "um" ]]; then
+		return 0
+	fi
+
+	# The upstream runtime-sized fix, commit 3f17fed21491 ("um: switch
+	# to regset API and depend on XSTATE") in v6.13, supersedes this
+	# workaround.  Detect it by kernel version rather than git ancestry,
+	# so the check also works on the shallow CI kernel checkouts (where
+	# git merge-base has no history to walk).
+	local v p
+	read -r v p < <(awk -F ' = ' \
+		'/^VERSION/{v=$2} /^PATCHLEVEL/{p=$2} END{print v, p}' Makefile)
+	if (( v > 6 || (v == 6 && p >= 13) )); then
+		return 0
+	fi
+
+	# The patch is anchored on context common to every tested pre-6.13
+	# kernel, so a plain git apply works (no three-way merge, which the
+	# shallow CI checkouts could not satisfy).  Reaching here means the
+	# patch is expected to apply; a failure means the backport no longer
+	# fits and must be fixed, so fail loudly rather than silently build
+	# an unpatched, still-crashing kernel.
+	if ! git apply "${BASE_DIR}/kernels/0003-um-x86-adaptive-xstate-fp.patch"; then
+		echo "ERROR: cannot apply the UML FP XSTATE workaround" >&2
+		exit 1
+	fi
+	PATCHES+=(uml_fp_xstate)
+	trap unpatch_all QUIT INT TERM EXIT
+	echo "[+] Patched UML FP XSTATE handling for larger host XSTATE"
 }
 
 # Populates BASE_CONFIGS with the base config fragments
@@ -193,6 +228,7 @@ create_config() {
 
 	patch_kernel_kconfig
 	patch_samples_kconfig
+	patch_uml_fp_xstate
 
 	echo "[+] Creating minimal configuration"
 	make_cmd \

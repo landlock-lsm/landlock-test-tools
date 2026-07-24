@@ -1,0 +1,204 @@
+From 45704b2c47735b6fb01d8e088c747ad8d249b3dc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Micka=C3=ABl=20Sala=C3=BCn?= <mic@digikod.net>
+Date: Fri, 24 Jul 2026 10:17:45 +0200
+Subject: [PATCH] um: x86: Adapt FP register ptrace transfers to the host
+ XSTATE size
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+UML saves and restores the guest FP state on the host through
+PTRACE_{GET,SET}REGSET(NT_X86_XSTATE).  Both transfers are sized to the
+fixed HOST_FP_SIZE (2696 bytes on 64-bit).  The host kernel clamps the
+requested length down to its own user XSTATE size; on a set it then
+requires the resulting count to equal that size exactly, so
+xstateregs_set() rejects a shorter buffer with -EFAULT.
+
+On a host whose CPU exposes a user XSTATE larger than 2696 bytes, for
+example one with AMX, the set is therefore too short and fails.  UML
+treats the failed restore as fatal and kills its init task during boot,
+so it does not come up on such hosts.
+
+Probe the host user XSTATE size once at boot with a get into a large
+buffer and remember it.  On restore, request that full length: when it
+fits within HOST_FP_SIZE, set directly from the register buffer;
+otherwise copy the buffer's prefix into a preallocated, zeroed bounce
+buffer of the host size and set from there.  Zero padding is safe
+because the host validates the uncompacted header (XCOMP_BV == 0) and
+only consumes components whose XSTATE_BV bit is set, so absent
+components are ignored and an absent PKRU is reset to zero.
+
+To keep that guarantee, the save path checks the returned XSTATE_BV
+against the set of components whose data fits within HOST_FP_SIZE:
+legacy x87/SSE, AVX, MPX, AVX-512 and PKRU.  A component outside that
+set would have had its data truncated by the fixed-size get, so its
+presence is fatal rather than silently zero-padded on the following
+restore.
+
+The get path is otherwise unchanged: the host returns a valid xsave
+prefix and the FP area still holds only the leading HOST_FP_SIZE bytes,
+so the guest-visible register array is not enlarged.
+
+The canonical fix is commit 3f17fed21491 ("um: switch to regset API and
+depend on XSTATE") in v6.13, which sizes the FP area at runtime; it is
+too large to backport.
+
+Fixes: 6f602afda727 ("um: Fix FP register size for XSTATE/XSAVE")
+Signed-off-by: Mickaël Salaün <mic@digikod.net>
+---
+ arch/x86/um/os-Linux/registers.c | 101 ++++++++++++++++++++++++++++---
+ 1 file changed, 93 insertions(+), 8 deletions(-)
+
+diff --git a/arch/x86/um/os-Linux/registers.c b/arch/x86/um/os-Linux/registers.c
+index 3c423dfcd78b..1e4377de4c13 100644
+--- a/arch/x86/um/os-Linux/registers.c
++++ b/arch/x86/um/os-Linux/registers.c
+@@ -6,6 +6,7 @@
+ 
+ #include <errno.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <sys/ptrace.h>
+ #ifdef __i386__
+ #include <sys/user.h>
+@@ -25,16 +26,65 @@ int save_i387_registers(int pid, unsigned long *fp_regs)
+ 	return 0;
+ }
+ 
++/*
++ * Size in bytes of the host's user XSTATE, probed once at boot via
++ * PTRACE_GETREGSET(NT_X86_XSTATE).  Stays zero on hosts without XSAVE
++ * support (where have_xstate_support is also left clear).
++ */
++static unsigned long host_xstate_size;
++
++/*
++ * Reusable bounce buffer of host_xstate_size bytes, used on restore
++ * when the host XSTATE is larger than the fixed FP_SIZE area.
++ * Allocated once at boot; UML is uniprocessor so no locking is needed.
++ */
++static unsigned long *fp_bounce_buf;
++
++/*
++ * Byte offset of the xstate_header.xfeatures (XSTATE_BV) field within
++ * an xsave area, right after the 512-byte legacy x87/SSE region.
++ */
++#define XSTATE_BV_BYTE_OFFSET	512
++
++/*
++ * XSTATE components whose save data fits within the fixed FP_SIZE
++ * prefix that UML exchanges with ptrace: legacy x87/SSE, AVX (YMM),
++ * MPX (BNDREGS/BNDCSR), AVX-512 (opmask/ZMM_Hi256/Hi16_ZMM) and PKRU.
++ * A component outside this set (notably AMX) stores its data past the
++ * prefix, so a save that advertised it in XSTATE_BV would have
++ * truncated that data.
++ */
++#define XSTATE_SAFE_MASK						\
++	((1ULL << 0) | (1ULL << 1) | (1ULL << 2) | (1ULL << 3) |	\
++	 (1ULL << 4) | (1ULL << 5) | (1ULL << 6) | (1ULL << 7) |	\
++	 (1ULL << 9))
++
+ int save_fp_registers(int pid, unsigned long *fp_regs)
+ {
+ #ifdef PTRACE_GETREGSET
+ 	struct iovec iov;
++	unsigned long long xstate_bv;
+ 
+ 	if (have_xstate_support) {
+ 		iov.iov_base = fp_regs;
+ 		iov.iov_len = FP_SIZE * sizeof(unsigned long);
+ 		if (ptrace(PTRACE_GETREGSET, pid, NT_X86_XSTATE, &iov) < 0)
+ 			return -errno;
++
++		/*
++		 * The host clamps the length to its user XSTATE size and
++		 * returns a valid xsave prefix.  Its header records the
++		 * live components; if any lies outside the prefix that
++		 * restore will hand back, its data was truncated here and
++		 * must not be silently dropped.
++		 */
++		xstate_bv = *(unsigned long long *)
++			((char *)fp_regs + XSTATE_BV_BYTE_OFFSET);
++		if (xstate_bv & ~XSTATE_SAFE_MASK)
++			panic("save_fp_registers: host XSTATE 0x%llx has "
++			      "components beyond the %ld-byte FP buffer",
++			      xstate_bv,
++			      (long)(FP_SIZE * sizeof(unsigned long)));
+ 		return 0;
+ 	} else
+ #endif
+@@ -53,8 +103,25 @@ int restore_fp_registers(int pid, unsigned long *fp_regs)
+ #ifdef PTRACE_SETREGSET
+ 	struct iovec iov;
+ 	if (have_xstate_support) {
+-		iov.iov_base = fp_regs;
+-		iov.iov_len = FP_SIZE * sizeof(unsigned long);
++		iov.iov_len = host_xstate_size;
++		if (host_xstate_size <= FP_SIZE * sizeof(unsigned long)) {
++			iov.iov_base = fp_regs;
++		} else {
++			/*
++			 * The host requires the full XSTATE length on set,
++			 * but fp_regs only holds the leading FP_SIZE prefix.
++			 * Copy that prefix into a zeroed host-sized buffer.
++			 * The uncompacted header (XCOMP_BV == 0) is validated
++			 * by the host, which only consumes components whose
++			 * XSTATE_BV bit is set; the zeroed tail is ignored.
++			 * The save path's invariant guarantees no advertised
++			 * component was truncated into that tail.
++			 */
++			memset(fp_bounce_buf, 0, host_xstate_size);
++			memcpy(fp_bounce_buf, fp_regs,
++			       FP_SIZE * sizeof(unsigned long));
++			iov.iov_base = fp_bounce_buf;
++		}
+ 		if (ptrace(PTRACE_SETREGSET, pid, NT_X86_XSTATE, &iov) < 0)
+ 			return -errno;
+ 		return 0;
+@@ -125,19 +192,37 @@ int put_fp_registers(int pid, unsigned long *regs)
+ void arch_init_registers(int pid)
+ {
+ #ifdef PTRACE_GETREGSET
+-	void * fp_regs;
++	/* Large enough for any current host XSTATE, a multiple of 8. */
++	const unsigned long probe_len = 64 * 1024;
++	void *fp_regs;
+ 	struct iovec iov;
+ 
+-	fp_regs = malloc(FP_SIZE * sizeof(unsigned long));
+-	if(fp_regs == NULL)
+-		return;
++	fp_regs = malloc(probe_len);
++	if (fp_regs == NULL)
++		panic("arch_init_registers: cannot allocate XSTATE probe "
++		      "buffer");
+ 
+ 	iov.iov_base = fp_regs;
+-	iov.iov_len = FP_SIZE * sizeof(unsigned long);
+-	if (ptrace(PTRACE_GETREGSET, pid, NT_X86_XSTATE, &iov) == 0)
++	iov.iov_len = probe_len;
++	if (ptrace(PTRACE_GETREGSET, pid, NT_X86_XSTATE, &iov) == 0) {
+ 		have_xstate_support = 1;
++		/* The host reports its user XSTATE size in iov.iov_len. */
++		host_xstate_size = iov.iov_len;
++	}
+ 
+ 	free(fp_regs);
++
++	if (!have_xstate_support)
++		return;
++
++	/*
++	 * Preallocate the restore bounce buffer once, sized to the host
++	 * XSTATE.  UML is uniprocessor, so one shared buffer suffices.
++	 */
++	fp_bounce_buf = malloc(host_xstate_size);
++	if (fp_bounce_buf == NULL)
++		panic("arch_init_registers: cannot allocate %ld-byte XSTATE "
++		      "buffer", (long)host_xstate_size);
+ #endif
+ }
+ #endif
+-- 
+2.43.0
+
