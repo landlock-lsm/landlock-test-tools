@@ -65,7 +65,27 @@ if [[ -h /tmp ]]; then
 	echo "ERROR: /tmp must not be a symlink" >&2
 	exit_poweroff 1
 fi
+
+# TEST_RET may live under /tmp (mktemp's default when TMPDIR is unset or
+# /tmp), which the tmpfs below then hides from the guest.  Open it now,
+# while it is still visible on hostfs; after mounting the tmpfs, bind the
+# open file (via /proc/self/fd) onto a fixed path there and report
+# through that path.  The bind keeps the host inode reachable across the
+# shadowing, and the descriptor is closed before the test runs so it
+# cannot leak into it.
+RET_FD=
+if [[ -n "${TEST_RET:-}" ]]; then
+	exec {RET_FD}>"${TEST_RET}"
+fi
+
 mount -t tmpfs -o "mode=1777,nosuid,nodev" tmpfs /tmp
+
+if [[ -n "${RET_FD:-}" ]]; then
+	: > /tmp/.ret
+	mount --bind "/proc/self/fd/${RET_FD}" /tmp/.ret
+	exec {RET_FD}>&-
+	TEST_RET=/tmp/.ret
+fi
 
 if [[ -z "${TMPDIR:-}" ]]; then
 	export TMPDIR="/tmp"
