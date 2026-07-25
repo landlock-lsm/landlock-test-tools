@@ -1,2 +1,2 @@
 open-ntimes: open-ntimes.c
-	$(CC) -o $@ $<
+	$(CC) -g -O3 -o $@ $< -lm
