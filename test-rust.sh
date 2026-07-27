@@ -24,19 +24,25 @@ BASE_DIR="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 
 ${CARGO} test --no-run
 
-# Quickly run cargo test to get the built binary.
-EXEC="$(${CARGO} test --no-run --color never 2>&1 | sed -n 's,^ *Executable unittests src/lib.rs (\(.*\)) *$,\1,p')"
+# Quickly run cargo test to get the built binaries: the unit tests
+# (src/lib.rs) and every integration test target (tests/*.rs).
+EXECS="$(${CARGO} test --no-run --color never 2>&1 | sed -n 's,^ *Executable [^(]*(\([^)]*\)) *$,\1,p')"
 
-if [[ -z "${EXEC}" ]]; then
-	echo "ERROR: Failed to get the test binary" >&2
+if [[ -z "${EXECS}" ]]; then
+	echo "ERROR: Failed to get the test binaries" >&2
 	exit 1
 fi
 
 TIMEOUT=9
 
-timeout --signal KILL "${TIMEOUT}" </dev/null 2>&1 "${BASE_DIR}/uml-run.sh" \
-	"${KERNEL}" \
-	"LANDLOCK_CRATE_TEST_ABI=${ABI}" \
-	-- \
-	"${EXEC}" \
-	| timeout "$((TIMEOUT + 1))" cat
+# Each test binary gets its own kernel boot so that a binary which
+# sandboxes itself (or panics) cannot affect the next one.
+while read -r EXEC; do
+	echo "[*] Running ${EXEC}"
+	timeout --signal KILL "${TIMEOUT}" </dev/null 2>&1 "${BASE_DIR}/uml-run.sh" \
+		"${KERNEL}" \
+		"LANDLOCK_CRATE_TEST_ABI=${ABI}" \
+		-- \
+		"${EXEC}" \
+		| timeout "$((TIMEOUT + 1))" cat
+done <<< "${EXECS}"
