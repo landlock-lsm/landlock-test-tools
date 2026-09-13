@@ -9,12 +9,8 @@ check-linux.sh
 
 --- a/samples/Kconfig
 +++ b/samples/Kconfig
-@@ -164,7 +164,7 @@ config SAMPLE_HIDRAW
- 
- config SAMPLE_LANDLOCK
+@@ -166,3 +166,3 @@ config SAMPLE_LANDLOCK
  	bool "Landlock example"
 -	depends on CC_CAN_LINK && HEADERS_INSTALL
 +	depends on CC_CAN_LINK
  	help
- 	  Build a simple Landlock sandbox manager able to start a process
- 	  restricted by a user-defined filesystem access control policy.
