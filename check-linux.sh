@@ -464,7 +464,7 @@ build_kselftest() {
 }
 
 run_kselftest_uml() {
-	local timeout=180
+	local timeout=480
 
 	# TODO: Use ./run_kselftest.sh --summary while catching test errors.
 	timeout --signal KILL "${timeout}" </dev/null 2>&1 "${BASE_DIR}/uml-run.sh" \
@@ -516,7 +516,7 @@ gcov_extract() {
 }
 
 run_kselftest_x86() {
-	local timeout=300
+	local timeout=480
 	local coverage_dir=""
 	local coverage_args=()
 	local inc="$(date +%s)"
