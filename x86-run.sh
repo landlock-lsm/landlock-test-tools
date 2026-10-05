@@ -114,6 +114,7 @@ GUEST_PATH="${BASE_DIR}/guest:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:
 vng --run "${KERNEL}" \
 	--verbose \
 	--user root \
+	--network user \
 	--rwdir "${OUT_DIR}" \
 	"${ARGS[@]}" \
 	--append "loglevel=4" \
