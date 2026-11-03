@@ -35,7 +35,17 @@ cp sandboxer /mnt/
 cp open-ntimes /mnt/
 
 mkdir /mnt/old
+
+# We create the same number of dirs/files no matter what depth or number
+# of rules we're testing with, to rule out inconsistency caused by
+# non-Landlock factors.
+
 mkdir -p /mnt/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9
+mkdir /mnt/extra_rules
+for i in $(seq 1 1000); do
+	touch "/mnt/extra_rules/_$i"
+done
+sync
 
 cd /mnt
 pivot_root . old
